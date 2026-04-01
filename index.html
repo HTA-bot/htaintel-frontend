@@ -2641,7 +2641,8 @@ function setGroup(g, el) {
     }
   });
 
-  fetchAndRenderFeed();
+  // Defer fetch until after DOM checkbox state is committed
+  setTimeout(fetchAndRenderFeed, 0);
 }
 
 let currentGroupFilter = 'all';
@@ -2663,7 +2664,7 @@ const GROUP_BODIES = {
 function getCheckedBodies() {
   return [...document.querySelectorAll('.sb-body-item')]
     .filter(row => row.querySelector('.sb-check.checked'))
-    .map(row => row.querySelector('.sb-body-name')?.textContent?.trim()?.split(' ')[0])
+    .map(row => row.querySelector('.sb-body-name')?.textContent?.trim())
     .filter(Boolean);
 }
 
@@ -2740,7 +2741,11 @@ async function fetchAndRenderFeed() {
     // If body checkboxes are in a mixed/partial state, filter to checked ones
     const checked = getCheckedBodies();
     if (checked.length > 0 && checked.length < 30) {
-      items = items.filter(i => checked.some(b => i.body.toLowerCase().includes(b.toLowerCase())));
+      // Match if item body contains the checked name OR checked name contains item body
+      items = items.filter(i => checked.some(b => {
+        const ib = i.body.toLowerCase(), cb = b.toLowerCase();
+        return ib.includes(cb) || cb.includes(ib);
+      }));
     }
 
     // q already declared above — reuse it here
