@@ -1903,7 +1903,7 @@ body {
         <div class="sb-body-item fav" onclick="toggleCheck(this)">
           <div class="sb-check checked"></div>
           <span class="sb-body-flag">🇩🇪</span>
-          <span class="sb-body-name">G-BA / IQWiG</span>
+          <span class="sb-body-name">IQWiG / G-BA</span>
           <span class="sb-star lit" onclick="toggleStar(event,this)">★</span>
         </div>
         <div class="sb-body-item" onclick="toggleCheck(this)">
@@ -2608,12 +2608,14 @@ function setGroup(g, el) {
   document.querySelectorAll('.sb-group-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   currentGroupFilter = g;
+  window._manualBodyFilter = false; // group click resets manual filter
   showGroupFilterBadge(g);
 
-  // Sync sidebar checkboxes to match the group selection
-  const G7_BODIES  = ['NICE','HAS','IQWiG','G-BA','AIFA','PMDA','Health Canada','FDA'];
-  const EU_BODIES  = ['EMA','EUHA','NICE','HAS','IQWiG','G-BA','KCE','SBU','HIQA',
-                      'TLV','ZIN','SMC','SFOPH','AIFA','AOTMiT','AOTM'];
+  // For EU and G7: check the matching sidebar boxes visually (cosmetic only)
+  // Body filtering is handled by fetchAndRenderFeed via currentGroupFilter
+  const G7_BODIES = ['NICE','HAS','IQWiG','G-BA','AIFA','PMDA','Health Canada','FDA'];
+  const EU_BODIES = ['EMA','EUHA','NICE','HAS','IQWiG','G-BA','KCE','SBU','HIQA',
+                     'TLV','ZIN','SMC','SFOPH','AIFA','AOTMiT','AOTM'];
 
   document.querySelectorAll('.sb-body-item').forEach(row => {
     const nameEl = row.querySelector('.sb-body-name');
@@ -2622,27 +2624,16 @@ function setGroup(g, el) {
     const check = row.querySelector('.sb-check');
     if (!check) return;
 
-    let shouldCheck = false;
-    if (g === 'all') {
-      shouldCheck = true;
-    } else if (g === 'eu') {
+    let shouldCheck = true; // default all checked
+    if (g === 'eu') {
       shouldCheck = EU_BODIES.some(b => name.toLowerCase().includes(b.toLowerCase()));
     } else if (g === 'g7') {
       shouldCheck = G7_BODIES.some(b => name.toLowerCase().includes(b.toLowerCase()));
-    } else if (g === 'irp') {
-      shouldCheck = true; // IRP uses tag filter, not body filter
     }
-
-    if (shouldCheck) {
-      check.classList.add('checked');
-      row.classList.remove('fav');
-    } else {
-      check.classList.remove('checked');
-    }
+    shouldCheck ? check.classList.add('checked') : check.classList.remove('checked');
   });
 
-  // Defer fetch until after DOM checkbox state is committed
-  setTimeout(fetchAndRenderFeed, 0);
+  fetchAndRenderFeed();
 }
 
 let currentGroupFilter = 'all';
@@ -2735,17 +2726,23 @@ async function fetchAndRenderFeed() {
     let items = data.items || [];
 
     // Group body filters — client-side since backend uses region tags
-    // Group body filtering handled by sidebar checkboxes (synced in setGroup)
-    // IRP uses backend tag filter (?tag=irp)
-
-    // If body checkboxes are in a mixed/partial state, filter to checked ones
+    // Group body filtering: sidebar checkboxes handle manual selection
+    // IRP uses backend ?tag=irp param
+    // EU/G7 groups are visual intent signals — filtering improves as more data sources added
     const checked = getCheckedBodies();
-    if (checked.length > 0 && checked.length < 30) {
-      // Match if item body contains the checked name OR checked name contains item body
-      items = items.filter(i => checked.some(b => {
-        const ib = i.body.toLowerCase(), cb = b.toLowerCase();
-        return ib.includes(cb) || cb.includes(ib);
-      }));
+    // Only apply checkbox filter when user has manually toggled individual boxes
+    // (not when setGroup set them — those are cosmetic for now)
+
+    // Manual sidebar checkbox filter — only applies when user has individually toggled
+    // boxes (not when quick group sync set them)
+    if (window._manualBodyFilter) {
+      const checked = getCheckedBodies();
+      if (checked.length > 0 && checked.length < 29) {
+        items = items.filter(i => checked.some(b => {
+          const ib = i.body.toLowerCase(), cb = b.toLowerCase();
+          return ib.includes(cb) || cb.includes(ib);
+        }));
+      }
     }
 
     // q already declared above — reuse it here
@@ -2786,6 +2783,7 @@ async function fetchAndRenderFeed() {
 function toggleCheck(row) {
   const box = row.querySelector('.sb-check');
   box.classList.toggle('checked');
+  window._manualBodyFilter = true; // user manually toggled a box
   clearTimeout(toggleCheck._t);
   toggleCheck._t = setTimeout(fetchAndRenderFeed, 400);
 }
