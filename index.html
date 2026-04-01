@@ -1865,22 +1865,22 @@ body {
         <button class="sb-group-btn active" onclick="setGroup('all',this)">
           <span class="sb-group-icon g-all">🌐</span>
           All Bodies
-          <span class="sb-count">52</span>
+          <span class="sb-count" id="grp-count-all">—</span>
         </button>
         <button class="sb-group-btn" onclick="setGroup('eu',this)">
           <span class="sb-group-icon g-eu">🇪🇺</span>
           European Union
-          <span class="sb-count">25</span>
+          <span class="sb-count" id="grp-count-eu">—</span>
         </button>
         <button class="sb-group-btn" onclick="setGroup('irp',this)">
           <span class="sb-group-icon g-irp">⬡</span>
           IRP Reference Set
-          <span class="sb-count">18</span>
+          <span class="sb-count" id="grp-count-irp">—</span>
         </button>
         <button class="sb-group-btn" onclick="setGroup('g7',this)">
           <span class="sb-group-icon g-g7">★</span>
           G7 Nations
-          <span class="sb-count">7</span>
+          <span class="sb-count" id="grp-count-g7">—</span>
         </button>
       </div>
 
@@ -2616,13 +2616,14 @@ let currentSort = 'date'; // 'date' | 'irp' | 'tag'
 
 const GROUP_REGIONS = {
   all:  null,
-  eu:   'eu',
+  eu:   null,   // EU filtered by body list below, not region tag
   irp:  'irp',
   g7:   null,
 };
 
 const GROUP_BODIES = {
-  g7: ['NICE','IQWiG / G-BA','CDA-AMC','PBAC','EMA / EUHA','HAS'],
+  eu:  ['EMA', 'EUHA', 'EUnetHTA', 'CHMP'],
+  g7:  ['NICE', 'IQWiG', 'G-BA', 'HAS', 'AIFA', 'PMDA', 'Health Canada', 'FDA', 'CMS'],
 };
 
 function getCheckedBodies() {
@@ -2698,8 +2699,11 @@ async function fetchAndRenderFeed() {
     const data = await resp.json();
     let items = data.items || [];
 
-    // G7 filter — client-side since backend doesn't know G7
-    if (currentGroupFilter === 'g7') {
+    // Group body filters — client-side since backend uses region tags
+    if (currentGroupFilter === 'eu') {
+      const euBodies = GROUP_BODIES.eu.map(b => b.toLowerCase());
+      items = items.filter(i => euBodies.some(b => i.body.toLowerCase().includes(b)));
+    } else if (currentGroupFilter === 'g7') {
       const g7Bodies = GROUP_BODIES.g7.map(b => b.toLowerCase());
       items = items.filter(i => g7Bodies.some(b => i.body.toLowerCase().includes(b)));
     }
@@ -4615,6 +4619,29 @@ function renderLSOResults({ drugName, launchCC, launchPrice, priceUnit, launchRu
   document.getElementById('lsoResults').innerHTML = html;
 }
 
+
+async function updateGroupCounts() {
+  try {
+    const [all, irp] = await Promise.all([
+      fetch(BACKEND_URL + '/feed?limit=200&sort=date').then(r => r.json()),
+      fetch(BACKEND_URL + '/feed?limit=200&sort=date&tag=irp').then(r => r.json()),
+    ]);
+    const allItems = all.items || [];
+    const irpTotal = irp.total || 0;
+
+    const euBodies  = GROUP_BODIES.eu.map(b => b.toLowerCase());
+    const g7Bodies  = GROUP_BODIES.g7.map(b => b.toLowerCase());
+    const euCount   = allItems.filter(i => euBodies.some(b => i.body.toLowerCase().includes(b))).length;
+    const g7Count   = allItems.filter(i => g7Bodies.some(b => i.body.toLowerCase().includes(b))).length;
+
+    const setCount = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setCount('grp-count-all', all.total || allItems.length);
+    setCount('grp-count-eu',  euCount + '+');
+    setCount('grp-count-irp', irpTotal);
+    setCount('grp-count-g7',  g7Count + '+');
+  } catch(e) {}
+}
+
 // ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
@@ -4624,6 +4651,7 @@ if (BACKEND_ENABLED) {
   // Kick off live feed fetch
   fetchAndRenderFeed().then(() => {
     showToast('Live feed loaded');
+    updateGroupCounts();
   }).catch(() => {});
 
   // Live stat bar
