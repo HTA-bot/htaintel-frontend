@@ -1190,74 +1190,6 @@ body {
 }
 
 /* ─── PRINT STYLES ──────────────────────────────────────────────── */
-/* ═══════════════════════════════════════════════
-   RESPONSIVE / MOBILE  (≤768px)
-   ═══════════════════════════════════════════════ */
-@media (max-width: 768px) {
-
-  /* Show hamburger, tighten topbar */
-  #mobileMenuBtn { display: flex !important; }
-  .topbar { padding: 0 12px; gap: 0; }
-  .logo-text { font-size: 15px; }
-  .topbar-right { gap: 6px; }
-
-  /* Hide topbar search on very small screens */
-  .topbar-search { display: none; }
-
-  /* Sidebar slides in from left as overlay */
-  .sidebar {
-    position: fixed;
-    top: 0; left: 0; bottom: 0;
-    z-index: 200;
-    transform: translateX(-100%);
-    transition: transform 0.25s ease;
-    width: 280px !important;
-    min-width: 0 !important;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
-  }
-  .sidebar.mobile-open {
-    transform: translateX(0);
-  }
-
-  /* Body takes full width when sidebar hidden */
-  .body { width: 100%; }
-
-  /* Feed cards — full width, tighter padding */
-  .feed-card { padding: 12px 12px 10px; }
-  .fc-title  { font-size: 13px; }
-  .fc-summary { font-size: 12px; -webkit-line-clamp: 2; }
-  .fc-star { top: 8px; right: 8px; font-size: 14px; }
-
-  /* Stat bar — wrap on small screens */
-  .stat-bar { flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
-  .stat-item { font-size: 11px; }
-
-  /* Pill bar — scrollable */
-  .pill-bar { overflow-x: auto; flex-wrap: nowrap; padding: 0 12px; }
-  .pill-bar::-webkit-scrollbar { display: none; }
-
-  /* Feed list padding */
-  #feedList { padding: 0 8px; }
-
-  /* Load more button */
-  #loadMoreWrap { padding: 16px 8px; }
-
-  /* IRP score badge — hide on mobile to save space */
-  .irp-score-badge { display: none; }
-
-  /* Search modal — full width */
-  .search-modal { width: 95vw; max-width: none; }
-
-  /* Announcements / alerts panels */
-  .ann-card { padding: 12px; }
-}
-
-@media (max-width: 390px) {
-  .topbar { padding: 0 8px; }
-  .logo-text { display: none; }          /* just show logomark on tiny screens */
-  .topbar-right button { padding: 4px 6px; font-size: 11px; }
-}
-
 @media print {
   @page { margin: 18mm 16mm; size: A4 portrait; }
 
@@ -1873,11 +1805,6 @@ body {
 
   <!-- ── TOPBAR ── -->
   <div class="topbar">
-    <!-- Mobile hamburger — hidden on desktop -->
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()"
-      style="display:none;background:none;border:none;color:var(--text1);
-             font-size:20px;cursor:pointer;padding:6px 10px 6px 0;line-height:1;
-             flex-shrink:0" aria-label="Menu">☰</button>
     <div class="logo">
       <div class="logo-mark">
         <svg viewBox="0 0 16 16" fill="none">
@@ -1913,7 +1840,7 @@ body {
     </nav>
 
     <div class="topbar-right">
-          <button id="alertBellBtn" onclick="toggleAlertHistory()" title="Alerts &amp; keyword settings"
+          <button id="alertBellBtn" onclick="toggleAlertHistory()"
             style="position:relative;background:none;border:none;cursor:pointer;font-size:18px;padding:4px 6px;border-radius:6px;color:var(--text2);display:flex;align-items:center"
             title="Alerts">
             🔔
@@ -2029,12 +1956,6 @@ body {
           Watchlist
           <span class="sb-count" id="grp-count-watchlist">0</span>
         </button>
-        <div id="watchlistClearRow" style="display:none;padding:2px 8px 6px 36px">
-          <span onclick="clearWatchlist()"
-            style="font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-underline-offset:2px"
-            onmouseover="this.style.color='var(--red)'"
-            onmouseout="this.style.color='var(--text3)'">Clear all</span>
-        </div>
       </div>
 
       <div class="sb-divider"></div>
@@ -2444,6 +2365,7 @@ body {
               font-size:12px;font-weight:600;cursor:pointer"></button>
           </div>
 
+
           <div class="irp-legend">
             <div class="irp-legend-title">Legend</div>
             <div class="legend-row"><div class="legend-dot" style="background:#4f46e5"></div>Anchor (most referenced)</div>
@@ -2714,12 +2636,6 @@ const annData = [
 ];
 
 // IRP Network
-// ══════════════════════════════════════════
-// IRP COMPARATOR — v2
-// Views: Network | Matrix | Compare (4-country)
-// Features: US included, country selector, click-to-card popup
-// ══════════════════════════════════════════
-
 const irpNodes = [
   // Tier 0 — Anchor (most referenced globally)
   {id:'DE', label:'Germany',      flag:'🇩🇪', x:0.42, y:0.30, score:11, color:'#4f46e5', tier:0,
@@ -3192,6 +3108,875 @@ function initIRP() {
 }
 
 window.addEventListener('resize', () => { if (irpView === 'network') drawIRP(); });
+
+
+function setGroup(g, el) {
+  document.querySelectorAll('.sb-group-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentGroupFilter = g;
+  window._manualBodyFilter = false; // group click resets manual filter
+  showGroupFilterBadge(g);
+
+  // For EU and G7: check the matching sidebar boxes visually (cosmetic only)
+  // Body filtering is handled by fetchAndRenderFeed via currentGroupFilter
+  const G7_BODIES = ['NICE','HAS','IQWiG','G-BA','AIFA','PMDA','Health Canada','FDA'];
+  const EU_BODIES = ['EMA','EUHA','NICE','HAS','IQWiG','G-BA','KCE','SBU','HIQA',
+                     'TLV','ZIN','SMC','SFOPH','AIFA','AOTMiT','AOTM'];
+
+  document.querySelectorAll('.sb-body-item').forEach(row => {
+    const nameEl = row.querySelector('.sb-body-name');
+    if (!nameEl) return;
+    const name = nameEl.textContent.trim();
+    const check = row.querySelector('.sb-check');
+    if (!check) return;
+
+    let shouldCheck = true; // default all checked
+    if (g === 'eu') {
+      shouldCheck = EU_BODIES.some(b => name.toLowerCase().includes(b.toLowerCase()));
+    } else if (g === 'g7') {
+      shouldCheck = G7_BODIES.some(b => name.toLowerCase().includes(b.toLowerCase()));
+    }
+    shouldCheck ? check.classList.add('checked') : check.classList.remove('checked');
+  });
+
+  if (g === 'watchlist') {
+    applyWatchlistFilter();
+  } else {
+    fetchAndRenderFeed();
+  }
+}
+
+let currentGroupFilter = 'all';
+let currentSort = 'date'; // 'date' | 'irp' | 'tag'
+
+const GROUP_REGIONS = {
+  all:  null,
+  eu:   null,   // EU filtered by body list below, not region tag
+  irp:  'irp',
+  g7:   null,
+};
+
+const GROUP_BODIES = {
+  eu:  ['EMA / EUHA', 'EMA', 'EUHA', 'EUnetHTA', 'CHMP', 'NICE', 'IQWiG / G-BA', 'SMC'],
+  g7:  ['NICE', 'IQWiG', 'G-BA', 'HAS', 'AIFA', 'PMDA', 'Health Canada', 'FDA', 'CMS',
+         'IQWiG / G-BA'],
+};
+
+function getCheckedBodies() {
+  return [...document.querySelectorAll('.sb-body-item')]
+    .filter(row => row.querySelector('.sb-check.checked'))
+    .map(row => row.querySelector('.sb-body-name')?.textContent?.trim())
+    .filter(Boolean);
+}
+
+
+function setSort(sort, el) {
+  currentSort = sort;
+  // Update button styles
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    const active = btn.dataset.sort === sort;
+    btn.style.background = active ? 'var(--accent)' : 'var(--surface2)';
+    btn.style.color      = active ? 'white'         : 'var(--text2)';
+  });
+  fetchAndRenderFeed();
+}
+
+
+function showFeedLoading() {
+  const list = document.getElementById('feedList');
+  if (!list) return;
+  list.innerHTML = Array(6).fill(0).map(() => `
+    <div class="feed-skeleton-card">
+      <div class="skeleton sk-line sk-title"></div>
+      <div class="skeleton sk-line sk-body"></div>
+      <div class="skeleton sk-line sk-short"></div>
+    </div>`).join('');
+}
+
+function showFeedError(msg) {
+  const list = document.getElementById('feedList');
+  if (!list) return;
+  list.innerHTML = `
+    <div style="padding:48px 24px;text-align:center;color:var(--text3)">
+      <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+      <div style="font-weight:600;font-size:14px;color:var(--text2);margin-bottom:6px">
+        Couldn't load feed
+      </div>
+      <div style="font-size:12px;margin-bottom:16px">${msg || 'Check your connection and try again.'}</div>
+      <button onclick="fetchAndRenderFeed()"
+        style="padding:8px 18px;background:var(--accent);color:white;border:none;
+               border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">
+        ↻ Try again
+      </button>
+    </div>`;
+}
+
+async function fetchAndRenderFeed(append = false) {
+  if (!BACKEND_ENABLED) { applyFeedFilters(); return; }
+
+  const q      = document.getElementById('feedSearch')?.value || '';
+  const region = GROUP_REGIONS[currentGroupFilter];
+  const tag    = activePillFilter === 'all' ? null : activePillFilter;
+
+  // Reset offset when doing a fresh fetch; use current offset when appending
+  if (!append) { feedOffset = 0; }
+  let url = BACKEND_URL + '/feed?limit=200&offset=' + feedOffset + '&sort=' + currentSort;
+  if (region && currentGroupFilter !== 'irp') url += '&region=' + region;
+  if (currentGroupFilter === 'irp')           url += '&irp=true';
+  if (tag && tag !== 'irp')                   url += '&tag=' + tag;
+  if (q)                                      url += '&q=' + encodeURIComponent(q);
+
+  // Show skeleton while loading (only when no current content or explicit refresh)
+  const feedList = document.getElementById('feedList');
+  const isEmpty = feedList && feedList.children.length === 0;
+  if (isEmpty || feedList?.querySelector('.feed-skeleton-card')) showFeedLoading();
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('Server returned ' + resp.status);
+    const data = await resp.json();
+    let items = data.items || [];
+    feedTotal  = data.total  || 0;
+    if (!append) { window._allFeedItems = items; }
+    else { window._allFeedItems = [...(window._allFeedItems||[]), ...items]; }
+    feedOffset = (append ? feedOffset : 0) + items.length;
+
+    // Group body filters — client-side since backend uses region tags
+    // Group body filtering: sidebar checkboxes handle manual selection
+    // IRP uses backend ?tag=irp param
+    // EU/G7 groups are visual intent signals — filtering improves as more data sources added
+    const checked = getCheckedBodies();
+    // Only apply checkbox filter when user has manually toggled individual boxes
+    // (not when setGroup set them — those are cosmetic for now)
+
+    // Manual sidebar checkbox filter — only applies when user has individually toggled
+    // boxes (not when quick group sync set them)
+    if (window._manualBodyFilter) {
+      const checked = getCheckedBodies();
+      if (checked.length > 0 && checked.length < 29) {
+        items = items.filter(i => checked.some(b => {
+          const ib = i.body.toLowerCase(), cb = b.toLowerCase();
+          return ib.includes(cb) || cb.includes(ib);
+        }));
+      }
+    }
+
+    // q already declared above — reuse it here
+    if (items.length > 0) {
+      if (append) {
+      renderFeedAppend(items, q);
+    } else {
+      renderFeed(items, q);
+    }
+    updateLoadMoreButton();
+      // Run alert engine against fresh items (only when not searching)
+      if (!q) setTimeout(() => runAlertEngine(items), 500);
+      // Show result count when searching
+      const countEl = document.getElementById('searchCount');
+      if (countEl && q) {
+        countEl.textContent = data.total + ' result' + (data.total !== 1 ? 's' : '');
+      }
+    } else if (q) {
+      // Show empty state for search
+      const grid = document.getElementById('feedGrid');
+      if (grid) grid.innerHTML = `<div style="padding:40px;text-align:center;opacity:.5;grid-column:1/-1">
+        <div style="font-size:32px;margin-bottom:8px">🔍</div>
+        <div style="font-weight:600">No results for "${q}"</div>
+        <div style="font-size:13px;margin-top:4px">Try the INN, brand name, or therapeutic area</div>
+      </div>`;
+      const countEl = document.getElementById('searchCount');
+      if (countEl) countEl.textContent = '0 results';
+    } else {
+      applyFeedFilters();
+    }
+  } catch(e) {
+    // Show error state — but only if the feed is currently showing skeletons
+    // (don't replace real content with an error on transient network blip)
+    const hasSkeleton = document.querySelector('#feedList .feed-skeleton-card');
+    if (hasSkeleton) {
+      showFeedError(e.message?.includes('fetch') ? 'Network error — is your connection active?' : null);
+    } else {
+      applyFeedFilters(); // silently keep existing content
+    }
+  }
+}
+
+function toggleCheck(row) {
+  const box = row.querySelector('.sb-check');
+  box.classList.toggle('checked');
+  window._manualBodyFilter = true; // user manually toggled a box
+  clearTimeout(toggleCheck._t);
+  toggleCheck._t = setTimeout(fetchAndRenderFeed, 400);
+}
+
+function toggleStar(e, star) {
+  e.stopPropagation();
+  star.classList.toggle('lit');
+  const row = star.closest('.sb-body-item');
+  row.classList.toggle('fav', star.classList.contains('lit'));
+}
+
+// ══════════════════════════════════════════
+// WATCHLIST
+// ══════════════════════════════════════════
+
+// Load starred IDs from localStorage
+let starredIds = new Set(JSON.parse(localStorage.getItem('htaintel_starred') || '[]'));
+
+// Persist starred IDs
+function saveStarred() {
+  localStorage.setItem('htaintel_starred', JSON.stringify([...starredIds]));
+  updateWatchlistCount();
+}
+
+// Toggle a feed item's starred state
+function toggleItemStar(e, itemId, el) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (starredIds.has(itemId)) {
+    starredIds.delete(itemId);
+    el.classList.remove('starred');
+  } else {
+    starredIds.add(itemId);
+    el.classList.add('starred');
+  }
+  saveStarred();
+  // If currently viewing watchlist, refresh to remove/add item
+  if (currentGroupFilter === 'watchlist') {
+    applyWatchlistFilter();
+  }
+}
+
+// Update the watchlist count badge
+function updateWatchlistCount() {
+  const badge = document.getElementById('grp-count-watchlist');
+  if (badge) badge.textContent = starredIds.size || '0';
+}
+
+// Apply watchlist filter to current feed cards
+function applyWatchlistFilter() {
+  const feedList = document.getElementById('feedList');
+  if (!feedList) return;
+  // Re-render from allFeedItems filtered to starred
+  const starred = (window._allFeedItems || []).filter(i => starredIds.has(i.id));
+  if (starred.length === 0) {
+    feedList.innerHTML = '<div style="padding:40px 0;text-align:center;color:var(--text3);font-size:14px">No items in your watchlist yet.<br>Click ★ on any feed item to add it.</div>';
+  } else {
+    renderFeed(starred, '');
+  }
+}
+
+// Call on load to initialise badge
+updateWatchlistCount();
+
+// ══════════════════════════════════════════
+// FEED
+// ══════════════════════════════════════════
+
+function _hl(text, q) {
+  if (!q || !text) return text || '';
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  try {
+    return text.replace(new RegExp('(' + escaped + ')', 'gi'),
+      '<mark style="background:rgba(79,70,229,.2);color:inherit;border-radius:2px;padding:0 1px">$1</mark>');
+  } catch(e) { return text; }
+}
+
+function renderFeed(data, highlightQ) {
+  document.getElementById('feedList').innerHTML = data.map((d, i) => `
+    <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title + ' ' + d.body + ' ' + d.body_name).toLowerCase()}" style="animation-delay:${i * 0.03}s">
+      <span class="fc-star ${starredIds.has(d.id) ? 'starred' : ''}" onclick="toggleItemStar(event,'${d.id}',this)" title="Add to watchlist">★</span>
+      <div class="fc-top">
+        <div class="fc-flag">${d.flag}</div>
+        <div class="fc-body">
+          <div style="display:flex;align-items:flex-start;gap:6px">
+              <div class="fc-title" style="flex:1">${_hl(d.title, highlightQ)}</div>
+              ${currentSort==='irp' && d.irp_score ? `<span title="IRP sensitivity score" style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;background:${d.irp_score>=70?'var(--red-lt)':d.irp_score>=50?'var(--amber-lt)':'var(--accent-lt)'};color:${d.irp_score>=70?'var(--red)':d.irp_score>=50?'var(--amber)':'var(--accent)'}">IRP ${d.irp_score}</span>` : ''}
+            </div>
+          <div class="fc-summary">${_hl(d.summary, highlightQ)}</div>
+        </div>
+      </div>
+      <div class="fc-footer">
+        <span class="tag tag-${d.tag}">${d.tag.toUpperCase()}</span>
+        ${d.irp ? '<span class="tag tag-irp">IRP-LINKED</span>' : ''}
+        <span class="fc-source">${d.body}</span>
+        <span class="fc-time">${d.time}</span>
+      </div>
+    </a>
+  `).join('');
+}
+
+
+function renderFeedAppend(data, highlightQ) {
+  const feedList = document.getElementById('feedList');
+  if (!feedList || !data.length) return;
+  const frag = document.createRange().createContextualFragment(
+    data.map((d, i) => `
+      <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title+' '+d.body).toLowerCase()}" style="animation-delay:${i*0.03}s">
+        <span class="fc-star ${starredIds.has(d.id) ? 'starred' : ''}" onclick="toggleItemStar(event,'${d.id}',this)" title="Add to watchlist">★</span>
+        <div class="fc-top">
+          <div class="fc-flag">${d.flag}</div>
+          <div class="fc-body">
+            <div style="display:flex;align-items:flex-start;gap:6px">
+              <div class="fc-title" style="flex:1">${_hl(d.title, highlightQ)}</div>
+            </div>
+            <div class="fc-summary">${_hl(d.summary, highlightQ)}</div>
+          </div>
+        </div>
+        <div class="fc-footer">
+          <span class="tag tag-${d.tag}">${d.tag.toUpperCase()}</span>
+          ${d.irp ? '<span class="tag tag-irp">IRP-LINKED</span>' : ''}
+          <span class="fc-source">${d.body}</span>
+          <span class="fc-time">${d.time}</span>
+        </div>
+      </a>
+    `).join('')
+  );
+  feedList.appendChild(frag);
+}
+
+function updateLoadMoreButton() {
+  const wrap = document.getElementById('loadMoreWrap');
+  const btn  = document.getElementById('loadMoreBtn');
+  if (!wrap || !btn) return;
+  const hasMore = feedOffset < feedTotal;
+  wrap.style.display = hasMore ? 'block' : 'none';
+  btn.textContent = feedLoading
+    ? 'Loading…'
+    : `Load more  (${(feedTotal - feedOffset).toLocaleString()} remaining)`;
+  btn.disabled = feedLoading;
+}
+
+function loadMore() {
+  if (feedLoading || feedOffset >= feedTotal) return;
+  feedLoading = true;
+  updateLoadMoreButton();
+  fetchAndRenderFeed(true).finally(() => {
+    feedLoading = false;
+    updateLoadMoreButton();
+  });
+}
+
+let activePillFilter = 'all';
+let feedOffset      = 0;       // current pagination offset
+let feedTotal       = 0;       // total items available from backend
+let feedLoading     = false;   // prevents concurrent fetches
+
+function setPill(type, el) {
+  activePillFilter = type;
+  document.querySelectorAll('.fpill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  fetchAndRenderFeed();
+}
+
+function filterFeed() {
+  const q = document.getElementById('feedSearch')?.value || '';
+  const clearBtn = document.getElementById('searchClear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+  if (!q) document.getElementById('searchCount').textContent = '';
+  clearTimeout(filterFeed._t);
+  filterFeed._t = setTimeout(() => {
+    fetchAndRenderFeed();
+    if (q.length >= 2) fetchSuggestions(q);
+    else hideSuggestions();
+  }, 300);
+}
+
+
+async function fetchSuggestions(q) {
+  try {
+    const r = await fetch(BACKEND_URL + '/feed?q=' + encodeURIComponent(q) + '&limit=8');
+    const data = await r.json();
+    const items = data.items || [];
+    if (!items.length || !document.getElementById('feedSearch')?.value) {
+      hideSuggestions(); return;
+    }
+    const box = document.getElementById('searchSuggestions');
+    if (!box) return;
+    // Extract unique drug names from titles
+    const seen = new Set();
+    const suggestions = items
+      .map(i => {
+        // Extract brand name (before parenthesis) and INN (inside parenthesis)
+        const brandMatch = i.title.match(/^([^(]+)/);
+        const innMatch   = i.title.match(/\(([^)]+)\)/);
+        return { brand: brandMatch?.[1]?.trim(), inn: innMatch?.[1]?.trim(), tag: i.tag, body: i.body };
+      })
+      .filter(s => s.brand && !seen.has(s.brand) && seen.add(s.brand));
+
+    box.innerHTML = suggestions.map(s => `
+      <div onclick="applySuggestion('${s.brand.replace(/'/g,"\\'")}'); hideSuggestions()"
+        style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--surface)"
+        onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='var(--surface)'">
+        <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:${s.tag==='approval'?'rgba(16,185,129,.15)':s.tag==='rejection'?'rgba(239,68,68,.15)':'var(--surface2)'};color:${s.tag==='approval'?'#10b981':s.tag==='rejection'?'#ef4444':'var(--text2)'}">
+          ${s.tag}</span>
+        <span style="font-weight:500;font-size:13px">${s.brand}</span>
+        ${s.inn ? `<span style="font-size:12px;color:var(--text3)">${s.inn}</span>` : ''}
+        <span style="margin-left:auto;font-size:11px;color:var(--text3)">${s.body}</span>
+      </div>`).join('');
+    // Position the fixed dropdown under the search input
+    const inp = document.getElementById('feedSearch');
+    if (inp) {
+      const rect = inp.getBoundingClientRect();
+      box.style.top = (rect.bottom + 4) + 'px';
+      box.style.left = rect.left + 'px';
+      box.style.width = rect.width + 'px';
+    }
+    box.style.display = 'block';
+    // Close on outside click
+    document.onclick = (e) => { if (!e.target.closest('#feedSearch, #searchSuggestions')) hideSuggestions(); };
+  } catch(e) { hideSuggestions(); }
+}
+
+function hideSuggestions() {
+  const box = document.getElementById('searchSuggestions');
+  if (box) box.style.display = 'none';
+}
+
+function applySuggestion(text) {
+  const inp = document.getElementById('feedSearch');
+  if (!inp) return;
+  inp.value = text;
+  document.getElementById('searchClear').style.display = 'block';
+  hideSuggestions();
+  fetchAndRenderFeed();
+}
+
+function clearSearch() {
+  const inp = document.getElementById('feedSearch');
+  if (inp) { inp.value = ''; inp.focus(); }
+  const clearBtn = document.getElementById('searchClear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  document.getElementById('searchCount').textContent = '';
+  hideSuggestions();
+  fetchAndRenderFeed();
+}
+
+function applyFeedFilters() {
+  const q = document.getElementById('feedSearch').value.toLowerCase();
+  document.querySelectorAll('.feed-card').forEach(c => {
+    const matchTag = activePillFilter === 'all' ||
+      c.dataset.tag === activePillFilter ||
+      (activePillFilter === 'irp' && c.innerHTML.includes('IRP-LINKED'));
+    const matchQ = !q || c.dataset.text.includes(q);
+    c.style.display = matchTag && matchQ ? '' : 'none';
+  });
+}
+
+// ══════════════════════════════════════════
+// ANNOUNCEMENTS
+// ══════════════════════════════════════════
+async function renderAnn() {
+  if (!BACKEND_ENABLED) { renderAnnItems(annData); return; }
+  try {
+    // Fetch a wide pool to curate from — sort by IRP risk to surface highest-stakes items
+    const [byIrp, byDate] = await Promise.all([
+      fetch(BACKEND_URL + '/feed?limit=100&sort=irp').then(r => r.json()),
+      fetch(BACKEND_URL + '/feed?limit=100&sort=date').then(r => r.json()),
+    ]);
+
+    const irpItems  = byIrp.items  || [];
+    const dateItems = byDate.items || [];
+
+    // Curation logic — select ~8 high-impact items across 3 tiers:
+    //   TIER 1 (lead story): highest IRP score rejection (most commercially critical)
+    //   TIER 2 (major):      top 3 IRP-flagged approvals with IRP score ≥60
+    //   TIER 3 (watch list): recent decisions within 7 days, any tag
+
+    const now = Date.now();
+    const days7 = 7 * 24 * 3600 * 1000;
+    const days30 = 30 * 24 * 3600 * 1000;
+
+    // Tier 1: highest-stakes rejection
+    const tier1 = irpItems
+      .filter(i => i.tag === 'rejection')
+      .slice(0, 1);
+
+    // Tier 2: top IRP-sensitive approvals (score ≥50, not already in tier1)
+    const tier1Ids = new Set(tier1.map(i => i.id));
+    const tier2 = irpItems
+      .filter(i => i.tag === 'approval' && (i.irp_score || 0) >= 50 && !tier1Ids.has(i.id))
+      .slice(0, 3);
+
+    // Tier 3: most recent decisions (within 30 days, not already picked)
+    const pickedIds = new Set([...tier1, ...tier2].map(i => i.id));
+    const tier3 = dateItems
+      .filter(i => {
+        if (pickedIds.has(i.id)) return false;
+        if (!i.timestamp) return false;
+        const age = now - new Date(i.timestamp).getTime();
+        return age < days30;
+      })
+      .slice(0, 4);
+
+    const curated = [...tier1, ...tier2, ...tier3];
+
+    if (curated.length > 0) {
+      renderAnnItems(curated);
+      updateAnnStats(curated, irpItems);
+    } else {
+      renderAnnItems(annData);
+    }
+  } catch(e) {
+    renderAnnItems(annData);
+  }
+}
+
+function updateAnnStats(curated, allIrp) {
+  // Update the stat bar with live numbers
+  const highImpact = curated.filter(i => i.tag === 'rejection' || (i.irp_score || 0) >= 70).length;
+  const irpCount   = allIrp.filter(i => i.irp).length;
+  const approvals  = curated.filter(i => i.tag === 'approval').length;
+  const rejections = curated.filter(i => i.tag === 'rejection').length;
+
+  const h  = document.getElementById('ann-stat-high');
+  const ir = document.getElementById('ann-stat-irp');
+  const ap = document.getElementById('ann-stat-approvals');
+  const re = document.getElementById('ann-stat-rejections');
+  if (h)  h.textContent  = highImpact;
+  if (ir) ir.textContent = irpCount;
+  if (ap) ap.textContent = approvals;
+  if (re) re.textContent = rejections;
+}
+
+function flagForBody(body) {
+  const b = body.toLowerCase();
+  if (b.includes('nice') || b.includes('htw') || b.includes('smc')) return '🇬🇧';
+  if (b.includes('has')) return '🇫🇷';
+  if (b.includes('iqwig') || b.includes('g-ba')) return '🇩🇪';
+  if (b.includes('pbac') || b.includes('msac')) return '🇦🇺';
+  if (b.includes('cda') || b.includes('cadth')) return '🇨🇦';
+  if (b.includes('kce')) return '🇧🇪';
+  if (b.includes('sbu')) return '🇸🇪';
+  if (b.includes('hiqa')) return '🇮🇪';
+  if (b.includes('ema') || b.includes('euha') || b.includes('eunethta')) return '🇪🇺';
+  if (b.includes('neca')) return '🇰🇷';
+  if (b.includes('ace')) return '🇸🇬';
+  if (b.includes('pharmac')) return '🇳🇿';
+  return '🌐';
+}
+
+function renderAnnItems(items) {
+  // Detect if items come from backend (have .tag, .irp_score, .link)
+  // or from mock annData (have .impact, .flag, .body2)
+  const isLive = items.length > 0 && items[0].irp_score !== undefined;
+
+  if (!isLive) {
+    // Legacy mock rendering
+    document.getElementById('annGrid').innerHTML = items.map((d, i) => `
+      <div class="ann-card impact-${d.impact}" style="animation-delay:${i*0.05}s">
+        <div class="ann-header">
+          <div class="ann-flag">${d.flag}</div>
+          <div class="ann-meta">
+            <div class="ann-body-name">${d.body}</div>
+            <div class="ann-date">${d.date}</div>
+          </div>
+          <span class="impact-badge ib-${d.impact==='high'?'high':d.impact==='med'?'med':'low'}">${d.impact==='med'?'MEDIUM':d.impact.toUpperCase()}</span>
+        </div>
+        <div class="ann-title">${d.title}</div>
+        <div class="ann-body-txt">${d.body}</div>
+        <div class="ann-footer">
+          <span class="tag tag-guidance" style="font-size:9px">${d.tag.toUpperCase()}</span>
+          <span class="ann-read">Read full update →</span>
+        </div>
+      </div>`).join('');
+    return;
+  }
+
+  // ── Live editorial layout ─────────────────────────────────────────────
+  const [lead, ...rest] = items;
+  const major = rest.slice(0, 3);
+  const watch = rest.slice(3);
+
+  function irpChip(item) {
+    if (!item.irp) return '';
+    const score = item.irp_score || 0;
+    const col = score >= 70 ? '#ef4444' : score >= 50 ? '#d97706' : '#4f46e5';
+    return `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:${col}22;color:${col};border:1px solid ${col}44">🌐 IRP ${score}</span>`;
+  }
+
+  function tagChip(tag) {
+    const cfg = {
+      approval:    ['#10b981','Approval'],
+      rejection:   ['#ef4444','Rejection'],
+      consultation:['#f59e0b','Consultation'],
+      guidance:    ['#6366f1','Guidance'],
+    };
+    const [col, label] = cfg[tag] || ['#6366f1','Update'];
+    return `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:${col}22;color:${col};text-transform:uppercase;letter-spacing:.5px">${label}</span>`;
+  }
+
+  // Lead story — full width, high visual weight
+  const leadHtml = lead ? `
+    <a href="${lead.link||'#'}" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit;
+      grid-column:1/-1;padding:20px 24px;border-radius:10px;
+      background:${lead.tag==='rejection'?'linear-gradient(135deg,#fef2f2,#fff)':'linear-gradient(135deg,#eef2ff,#fff)'};
+      border:2px solid ${lead.tag==='rejection'?'#fca5a5':'#a5b4fc'};
+      transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 20px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow=''">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3)">LEAD STORY</span>
+        <span style="flex:1;height:1px;background:var(--border)"></span>
+        ${tagChip(lead.tag)} ${irpChip(lead)}
+        <span style="font-size:11px;color:var(--text3)">${lead.time}</span>
+      </div>
+      <div style="font-size:16px;font-weight:700;line-height:1.4;color:var(--text);margin-bottom:6px">${lead.title}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${lead.summary}</div>
+      <div style="margin-top:10px;font-size:11px;font-weight:600;color:var(--accent)">
+        ${lead.body} · Read full assessment →
+      </div>
+    </a>` : '';
+
+  // Major cards — 2-col grid
+  const majorHtml = major.map(item => `
+    <a href="${item.link||'#'}" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit;
+      padding:16px;border-radius:8px;background:var(--surface);border:1px solid var(--border);
+      transition:box-shadow .15s,border-color .15s" onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,.08)';this.style.borderColor='var(--accent-md)'" onmouseout="this.style.boxShadow='';this.style.borderColor='var(--border)'">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        ${tagChip(item.tag)} ${irpChip(item)}
+        <span style="margin-left:auto;font-size:10px;color:var(--text3)">${item.time}</span>
+      </div>
+      <div style="font-size:13px;font-weight:600;line-height:1.4;color:var(--text);margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${item.title}</div>
+      <div style="font-size:11px;color:var(--text3);font-weight:500">${item.body}</div>
+    </a>`).join('');
+
+  // Watch list — compact rows
+  const watchHtml = watch.length ? `
+    <div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text3);margin-bottom:8px">ALSO WATCH</div>
+      ${watch.map(item => `
+        <a href="${item.link||'#'}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);text-decoration:none;color:inherit"
+          onmouseover="this.style.background=''" onmouseout="this.style.background=''">
+          ${tagChip(item.tag)}
+          <span style="font-size:12px;color:var(--text);flex:1;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden">${item.title}</span>
+          ${irpChip(item)}
+          <span style="font-size:10px;color:var(--text3);white-space:nowrap">${item.body}</span>
+          <span style="font-size:10px;color:var(--text3);white-space:nowrap">${item.time}</span>
+        </a>`).join('')}
+    </div>` : '';
+
+  document.getElementById('annGrid').innerHTML = leadHtml + majorHtml + watchHtml;
+
+  // Make annGrid a proper grid
+  const grid = document.getElementById('annGrid');
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px';
+}
+
+// ══════════════════════════════════════════
+// IRP NETWORK
+// ══════════════════════════════════════════
+let irpView = 'network';
+let animFrame;
+let hoveredNode = null;
+
+const nodeMap = {};
+irpNodes.forEach(n => nodeMap[n.id] = n);
+
+function setIrpView(view, el) {
+  irpView = view;
+  document.querySelectorAll('.irp-view-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const canvas = document.getElementById('irpCanvas');
+  const matrix = document.getElementById('irpMatrix');
+  if (view === 'network') {
+    canvas.style.display = 'block';
+    matrix.style.display = 'none';
+    drawIRP();
+  } else {
+    canvas.style.display = 'none';
+    matrix.style.display = 'block';
+    renderMatrix();
+  }
+}
+
+function initIRP() {
+  const canvas = document.getElementById('irpCanvas');
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  drawIRP();
+  canvas.addEventListener('mousemove', onIRPHover);
+  canvas.addEventListener('mouseleave', () => {
+    hoveredNode = null;
+    document.getElementById('irpTooltip').style.display = 'none';
+    drawIRP();
+  });
+}
+
+function getNodePx(n, W, H) {
+  return { x: n.x * W, y: n.y * H };
+}
+
+function getNodeRadius(n) {
+  return 10 + n.score * 1.8;
+}
+
+function drawIRP() {
+  const canvas = document.getElementById('irpCanvas');
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  if (wrap.clientWidth !== canvas.width) {
+    canvas.width = wrap.clientWidth;
+    canvas.height = wrap.clientHeight;
+  }
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // subtle grid
+  ctx.strokeStyle = 'rgba(0,0,0,0.03)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Draw edges
+  irpEdges.forEach(([fromId, toId]) => {
+    const fn = nodeMap[fromId], tn = nodeMap[toId];
+    if (!fn || !tn) return;
+    const fp = getNodePx(fn, W, H), tp = getNodePx(tn, W, H);
+    const fr = getNodeRadius(fn), tr = getNodeRadius(tn);
+    const dx = tp.x - fp.x, dy = tp.y - fp.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    if (len === 0) return;
+    const ux = dx/len, uy = dy/len;
+    const sx = fp.x + ux*fr, sy = fp.y + uy*fr;
+    const ex = tp.x - ux*(tr+6), ey = tp.y - uy*(tr+6);
+
+    const isHovered = hoveredNode && (hoveredNode.id === fromId || hoveredNode.id === toId);
+    ctx.beginPath();
+    ctx.strokeStyle = isHovered ? (hoveredNode.id === fromId ? '#4f46e5' : '#dc2626') + 'cc' : 'rgba(180,174,166,0.3)';
+    ctx.lineWidth = isHovered ? 1.5 : 0.8;
+    ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+
+    // arrowhead
+    const angle = Math.atan2(ey - sy, ex - sx);
+    ctx.beginPath();
+    ctx.fillStyle = isHovered ? (hoveredNode.id === fromId ? '#4f46e5' : '#dc2626') + 'cc' : 'rgba(168,162,158,0.5)';
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - 7*Math.cos(angle-0.4), ey - 7*Math.sin(angle-0.4));
+    ctx.lineTo(ex - 7*Math.cos(angle+0.4), ey - 7*Math.sin(angle+0.4));
+    ctx.closePath(); ctx.fill();
+  });
+
+  // Draw nodes
+  irpNodes.forEach(n => {
+    const p = getNodePx(n, W, H);
+    const r = getNodeRadius(n);
+    const isHov = hoveredNode && hoveredNode.id === n.id;
+
+    // glow ring
+    if (isHov) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + 6, 0, Math.PI*2);
+      ctx.fillStyle = n.color + '20';
+      ctx.fill();
+    }
+
+    // outer glow
+    const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r*2);
+    grd.addColorStop(0, n.color + '30');
+    grd.addColorStop(1, n.color + '00');
+    ctx.beginPath(); ctx.arc(p.x, p.y, r*2, 0, Math.PI*2);
+    ctx.fillStyle = grd; ctx.fill();
+
+    // fill
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+    ctx.fillStyle = n.color + (isHov ? 'ee' : '22');
+    ctx.fill();
+    ctx.strokeStyle = n.color + (isHov ? 'ff' : 'cc');
+    ctx.lineWidth = isHov ? 2 : 1.5;
+    ctx.stroke();
+
+    // label
+    const fontSize = Math.max(9, Math.min(12, r * 0.72));
+    ctx.fillStyle = isHov ? n.color : '#1c1917';
+    ctx.font = `500 ${fontSize}px 'Instrument Sans', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(n.id, p.x, p.y);
+  });
+}
+
+function onIRPHover(e) {
+  const canvas = document.getElementById('irpCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const W = canvas.width, H = canvas.height;
+  const tt = document.getElementById('irpTooltip');
+
+  let found = null;
+  irpNodes.forEach(n => {
+    const p = getNodePx(n, W, H);
+    const r = getNodeRadius(n);
+    const dist = Math.sqrt((mx-p.x)**2 + (my-p.y)**2);
+    if (dist <= r + 4) found = n;
+  });
+
+  if (found !== hoveredNode) {
+    hoveredNode = found;
+    drawIRP();
+  }
+
+  if (found) {
+    const referencedBy = irpEdges.filter(([f]) => f === found.id).map(([,t]) => t);
+    const references   = irpEdges.filter(([,t]) => t === found.id).map(([f]) => f);
+    tt.innerHTML = `
+      <div class="irp-tt-name">${found.label} (${found.id})</div>
+      <div class="irp-tt-row">Referenced by: <span>${references.length} nations</span></div>
+      <div class="irp-tt-row">References: <span>${referencedBy.join(', ') || 'none'}</span></div>
+      <div class="irp-tt-row">Influence score: <span>${found.score}/11</span></div>
+    `;
+    const ttX = Math.min(e.clientX - rect.left + 12, W - 230);
+    const ttY = Math.min(e.clientY - rect.top + 12, H - 120);
+    tt.style.left = ttX + 'px';
+    tt.style.top  = ttY + 'px';
+    tt.style.display = 'block';
+  } else {
+    tt.style.display = 'none';
+  }
+}
+
+function renderMatrix() {
+  const countries = ['DE','UK','FR','SE','BE','NL','IT','ES','AU','CA','AT','CH','JP'];
+  const fullNames = {DE:'Germany',UK:'UK',FR:'France',SE:'Sweden',BE:'Belgium',NL:'Netherlands',IT:'Italy',ES:'Spain',AU:'Australia',CA:'Canada',AT:'Austria',CH:'Switzerland',JP:'Japan'};
+  const referencers = ['AT','CH','PL','CZ','HU','SK','GR','PT','RO','BG','KR','SG','IL'];
+  const refNames = {AT:'Austria',CH:'Switzerland',PL:'Poland',CZ:'Czech Rep.',HU:'Hungary',SK:'Slovakia',GR:'Greece',PT:'Portugal',RO:'Romania',BG:'Bulgaria',KR:'S. Korea',SG:'Singapore',IL:'Israel'};
+
+  const matrix = {};
+  referencers.forEach(r => {
+    matrix[r] = {};
+    countries.forEach(c => { matrix[r][c] = 0; });
+    irpEdges.filter(([f]) => f === r).forEach(([,t]) => { if (matrix[r][t] !== undefined) matrix[r][t] = 1; });
+  });
+
+  const colTotals = countries.map(c => referencers.reduce((s, r) => s + (matrix[r][c] || 0), 0));
+  const maxTotal  = Math.max(...colTotals);
+
+  let html = '<table class="matrix-table"><thead><tr><th class="row-head">References →</th>';
+  countries.forEach(c => {
+    html += `<th title="${fullNames[c]}" style="writing-mode:vertical-rl;transform:rotate(180deg);padding:4px 3px;font-size:10px;">${c}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  referencers.forEach(r => {
+    html += `<tr><td class="label-cell" title="${refNames[r]}">${r}</td>`;
+    countries.forEach((c, i) => {
+      const val = matrix[r][c];
+      const intensity = val ? 0.12 + 0.7 * (colTotals[i] / maxTotal) : 0;
+      const bg = val ? `rgba(79,70,229,${intensity.toFixed(2)})` : 'transparent';
+      html += `<td style="background:${bg}" title="${refNames[r]} references ${fullNames[c]}">${val ? '●' : ''}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody><tfoot><tr><td class="label-cell" style="font-size:10px;color:#a8a29e">Total refs</td>';
+  colTotals.forEach(t => {
+    html += `<td style="font-size:10px;font-family:var(--font-mono);color:#4f46e5;border-top:2px solid #e8e4de;">${t}</td>`;
+  });
+  html += '</tr></tfoot></table>';
+
+  document.getElementById('irpMatrix').innerHTML = html;
+}
 
 // ══════════════════════════════════════════
 // USA HUB — LIVE DATA (openFDA API + RSS)
@@ -4425,6 +5210,8 @@ function removeAlertKeyword(kw) {
 }
 
 
+
+
 // ── Browser notification permission request ────────────────────────────────
 function requestNotifPermission() {
   if (!('Notification' in window)) return;
@@ -4791,10 +5578,5 @@ if (appState.activeUserId && activeUser()) {
   pingBackend(); // immediate ping on load
 
 </script>
-  <!-- Mobile sidebar overlay backdrop -->
-  <div id="mobileOverlay" onclick="closeMobileMenu()"
-    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);
-           z-index:199;backdrop-filter:blur(2px)"></div>
-
 </body>
 </html>P
