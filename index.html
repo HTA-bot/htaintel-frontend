@@ -2726,14 +2726,16 @@ function showFeedError(msg) {
     </div>`;
 }
 
-async function fetchAndRenderFeed() {
+async function fetchAndRenderFeed(append = false) {
   if (!BACKEND_ENABLED) { applyFeedFilters(); return; }
 
   const q      = document.getElementById('feedSearch')?.value || '';
   const region = GROUP_REGIONS[currentGroupFilter];
   const tag    = activePillFilter === 'all' ? null : activePillFilter;
 
-  let url = BACKEND_URL + '/feed?limit=200&sort=' + currentSort;
+  // Reset offset when doing a fresh fetch; use current offset when appending
+  if (!append) { feedOffset = 0; }
+  let url = BACKEND_URL + '/feed?limit=200&offset=' + feedOffset + '&sort=' + currentSort;
   if (region && currentGroupFilter !== 'irp') url += '&region=' + region;
   if (currentGroupFilter === 'irp')           url += '&irp=true';
   if (tag && tag !== 'irp')                   url += '&tag=' + tag;
@@ -2749,6 +2751,8 @@ async function fetchAndRenderFeed() {
     if (!resp.ok) throw new Error('Server returned ' + resp.status);
     const data = await resp.json();
     let items = data.items || [];
+    feedTotal  = data.total  || 0;
+    feedOffset = (append ? feedOffset : 0) + items.length;
 
     // Group body filters — client-side since backend uses region tags
     // Group body filtering: sidebar checkboxes handle manual selection
@@ -2772,7 +2776,12 @@ async function fetchAndRenderFeed() {
 
     // q already declared above — reuse it here
     if (items.length > 0) {
+      if (append) {
+      renderFeedAppend(items, q);
+    } else {
       renderFeed(items, q);
+    }
+    updateLoadMoreButton();
       // Run alert engine against fresh items (only when not searching)
       if (!q) setTimeout(() => runAlertEngine(items), 500);
       // Show result count when searching
@@ -2857,7 +2866,57 @@ function renderFeed(data, highlightQ) {
   `).join('');
 }
 
+
+function renderFeedAppend(data, highlightQ) {
+  const feedList = document.getElementById('feedList');
+  if (!feedList || !data.length) return;
+  const frag = document.createRange().createContextualFragment(
+    data.map((d, i) => `
+      <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title+' '+d.body).toLowerCase()}" style="animation-delay:${i*0.03}s">
+        ${d.star ? '<div class="fc-star">★</div>' : ''}
+        <div class="fc-top">
+          <div class="fc-flag">${d.flag}</div>
+          <div class="fc-body">
+            <div style="display:flex;align-items:flex-start;gap:6px">
+              <div class="fc-title" style="flex:1">${_hl(d.title, highlightQ)}</div>
+            </div>
+            <div class="fc-summary">${_hl(d.summary, highlightQ)}</div>
+          </div>
+        </div>
+        <div class="fc-footer">
+          <span class="tag tag-${d.tag}">${d.tag.toUpperCase()}</span>
+          ${d.irp ? '<span class="tag tag-irp">IRP-LINKED</span>' : ''}
+          <span class="fc-source">${d.body}</span>
+          <span class="fc-time">${d.time}</span>
+        </div>
+      </a>
+    `).join('')
+  );
+  feedList.appendChild(frag);
+}
+
+function updateLoadMoreButton() {
+  const btn = document.getElementById('loadMoreBtn');
+  if (!btn) return;
+  const hasMore = feedOffset < feedTotal;
+  btn.style.display = hasMore ? 'block' : 'none';
+  btn.textContent = feedLoading ? 'Loading…' : `Load more  (${feedTotal - feedOffset} remaining)`;
+}
+
+function loadMore() {
+  if (feedLoading || feedOffset >= feedTotal) return;
+  feedLoading = true;
+  updateLoadMoreButton();
+  fetchAndRenderFeed(true).finally(() => {
+    feedLoading = false;
+    updateLoadMoreButton();
+  });
+}
+
 let activePillFilter = 'all';
+let feedOffset      = 0;       // current pagination offset
+let feedTotal       = 0;       // total items available from backend
+let feedLoading     = false;   // prevents concurrent fetches
 
 function setPill(type, el) {
   activePillFilter = type;
