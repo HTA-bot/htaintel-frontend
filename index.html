@@ -3764,11 +3764,9 @@ function renderAnnItems(items) {
 // ══════════════════════════════════════════
 // IRP NETWORK
 // ══════════════════════════════════════════
-let irpView = 'network';
 let animFrame;
 let hoveredNode = null;
 
-const nodeMap = {};
 irpNodes.forEach(n => nodeMap[n.id] = n);
 
 function setIrpView(view, el) {
