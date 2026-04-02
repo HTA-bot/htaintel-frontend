@@ -575,10 +575,19 @@ body {
 
 .fc-star {
   position: absolute;
-  top: 12px; right: 12px;
-  font-size: 14px;
-  color: var(--amber);
+  top: 8px; right: 10px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--border2);
+  cursor: pointer;
+  z-index: 2;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  text-decoration: none;
 }
+.fc-star:hover { color: var(--amber); background: var(--amber-lt); }
+.fc-star.starred { color: var(--amber); }
 
 /* ─── ANNOUNCEMENTS PANEL ───────────────────────────────────────── */
 .ann-wrap {
@@ -1907,6 +1916,11 @@ body {
           G7 Nations
           <span class="sb-count" id="grp-count-g7">—</span>
         </button>
+        <button class="sb-group-btn" onclick="setGroup('watchlist',this)" id="watchlistBtn">
+          <span class="sb-group-icon" style="font-size:14px">⭐</span>
+          Watchlist
+          <span class="sb-count" id="grp-count-watchlist">0</span>
+        </button>
       </div>
 
       <div class="sb-divider"></div>
@@ -2766,6 +2780,8 @@ async function fetchAndRenderFeed(append = false) {
     const data = await resp.json();
     let items = data.items || [];
     feedTotal  = data.total  || 0;
+    if (!append) { window._allFeedItems = items; }
+    else { window._allFeedItems = [...(window._allFeedItems||[]), ...items]; }
     feedOffset = (append ? feedOffset : 0) + items.length;
 
     // Group body filters — client-side since backend uses region tags
@@ -2844,6 +2860,59 @@ function toggleStar(e, star) {
 }
 
 // ══════════════════════════════════════════
+// WATCHLIST
+// ══════════════════════════════════════════
+
+// Load starred IDs from localStorage
+let starredIds = new Set(JSON.parse(localStorage.getItem('htaintel_starred') || '[]'));
+
+// Persist starred IDs
+function saveStarred() {
+  localStorage.setItem('htaintel_starred', JSON.stringify([...starredIds]));
+  updateWatchlistCount();
+}
+
+// Toggle a feed item's starred state
+function toggleItemStar(e, itemId, el) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (starredIds.has(itemId)) {
+    starredIds.delete(itemId);
+    el.classList.remove('starred');
+  } else {
+    starredIds.add(itemId);
+    el.classList.add('starred');
+  }
+  saveStarred();
+  // If currently viewing watchlist, refresh to remove/add item
+  if (currentGroupFilter === 'watchlist') {
+    applyWatchlistFilter();
+  }
+}
+
+// Update the watchlist count badge
+function updateWatchlistCount() {
+  const badge = document.getElementById('grp-count-watchlist');
+  if (badge) badge.textContent = starredIds.size || '0';
+}
+
+// Apply watchlist filter to current feed cards
+function applyWatchlistFilter() {
+  const feedList = document.getElementById('feedList');
+  if (!feedList) return;
+  // Re-render from allFeedItems filtered to starred
+  const starred = (window._allFeedItems || []).filter(i => starredIds.has(i.id));
+  if (starred.length === 0) {
+    feedList.innerHTML = '<div style="padding:40px 0;text-align:center;color:var(--text3);font-size:14px">No items in your watchlist yet.<br>Click ★ on any feed item to add it.</div>';
+  } else {
+    renderFeed(starred, '');
+  }
+}
+
+// Call on load to initialise badge
+updateWatchlistCount();
+
+// ══════════════════════════════════════════
 // FEED
 // ══════════════════════════════════════════
 
@@ -2859,7 +2928,7 @@ function _hl(text, q) {
 function renderFeed(data, highlightQ) {
   document.getElementById('feedList').innerHTML = data.map((d, i) => `
     <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title + ' ' + d.body + ' ' + d.body_name).toLowerCase()}" style="animation-delay:${i * 0.03}s">
-      ${d.star ? '<div class="fc-star">★</div>' : ''}
+      <span class="fc-star ${starredIds.has(d.id) ? 'starred' : ''}" onclick="toggleItemStar(event,'${d.id}',this)" title="Add to watchlist">★</span>
       <div class="fc-top">
         <div class="fc-flag">${d.flag}</div>
         <div class="fc-body">
@@ -2887,7 +2956,7 @@ function renderFeedAppend(data, highlightQ) {
   const frag = document.createRange().createContextualFragment(
     data.map((d, i) => `
       <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title+' '+d.body).toLowerCase()}" style="animation-delay:${i*0.03}s">
-        ${d.star ? '<div class="fc-star">★</div>' : ''}
+        <span class="fc-star ${starredIds.has(d.id) ? 'starred' : ''}" onclick="toggleItemStar(event,'${d.id}',this)" title="Add to watchlist">★</span>
         <div class="fc-top">
           <div class="fc-flag">${d.flag}</div>
           <div class="fc-body">
