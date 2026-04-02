@@ -484,6 +484,9 @@ body {
 .feed-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
 .feed-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -495,6 +498,7 @@ body {
 }
 
 .feed-card:hover {
+  cursor: pointer;
   box-shadow: var(--shadow-sm);
   border-color: var(--border2);
   transform: translateY(-1px);
@@ -2831,7 +2835,7 @@ function _hl(text, q) {
 
 function renderFeed(data, highlightQ) {
   document.getElementById('feedList').innerHTML = data.map((d, i) => `
-    <div class="feed-card" data-tag="${d.tag}" data-text="${(d.title + ' ' + d.body + ' ' + d.body_name).toLowerCase()}" style="animation-delay:${i * 0.03}s">
+    <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title + ' ' + d.body + ' ' + d.body_name).toLowerCase()}" style="animation-delay:${i * 0.03}s">
       ${d.star ? '<div class="fc-star">★</div>' : ''}
       <div class="fc-top">
         <div class="fc-flag">${d.flag}</div>
@@ -2849,7 +2853,7 @@ function renderFeed(data, highlightQ) {
         <span class="fc-source">${d.body}</span>
         <span class="fc-time">${d.time}</span>
       </div>
-    </div>
+    </a>
   `).join('');
 }
 
