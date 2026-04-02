@@ -1155,6 +1155,74 @@ body {
 }
 
 /* ─── PRINT STYLES ──────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════
+   RESPONSIVE / MOBILE  (≤768px)
+   ═══════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Show hamburger, tighten topbar */
+  #mobileMenuBtn { display: flex !important; }
+  .topbar { padding: 0 12px; gap: 0; }
+  .logo-text { font-size: 15px; }
+  .topbar-right { gap: 6px; }
+
+  /* Hide topbar search on very small screens */
+  .topbar-search { display: none; }
+
+  /* Sidebar slides in from left as overlay */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    width: 280px !important;
+    min-width: 0 !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Body takes full width when sidebar hidden */
+  .body { width: 100%; }
+
+  /* Feed cards — full width, tighter padding */
+  .feed-card { padding: 12px 12px 10px; }
+  .fc-title  { font-size: 13px; }
+  .fc-summary { font-size: 12px; -webkit-line-clamp: 2; }
+  .fc-star { top: 8px; right: 8px; font-size: 14px; }
+
+  /* Stat bar — wrap on small screens */
+  .stat-bar { flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
+  .stat-item { font-size: 11px; }
+
+  /* Pill bar — scrollable */
+  .pill-bar { overflow-x: auto; flex-wrap: nowrap; padding: 0 12px; }
+  .pill-bar::-webkit-scrollbar { display: none; }
+
+  /* Feed list padding */
+  #feedList { padding: 0 8px; }
+
+  /* Load more button */
+  #loadMoreWrap { padding: 16px 8px; }
+
+  /* IRP score badge — hide on mobile to save space */
+  .irp-score-badge { display: none; }
+
+  /* Search modal — full width */
+  .search-modal { width: 95vw; max-width: none; }
+
+  /* Announcements / alerts panels */
+  .ann-card { padding: 12px; }
+}
+
+@media (max-width: 390px) {
+  .topbar { padding: 0 8px; }
+  .logo-text { display: none; }          /* just show logomark on tiny screens */
+  .topbar-right button { padding: 4px 6px; font-size: 11px; }
+}
+
 @media print {
   @page { margin: 18mm 16mm; size: A4 portrait; }
 
@@ -1770,6 +1838,11 @@ body {
 
   <!-- ── TOPBAR ── -->
   <div class="topbar">
+    <!-- Mobile hamburger — hidden on desktop -->
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()"
+      style="display:none;background:none;border:none;color:var(--text1);
+             font-size:20px;cursor:pointer;padding:6px 10px 6px 0;line-height:1;
+             flex-shrink:0" aria-label="Menu">☰</button>
     <div class="logo">
       <div class="logo-mark">
         <svg viewBox="0 0 16 16" fill="none">
@@ -2664,6 +2737,8 @@ var switchTab = function(el, silent) {
 };
 
 function setGroup(g, el) {
+  // Close mobile sidebar when a filter is tapped
+  if (window.innerWidth <= 768) { closeMobileMenu(); }
   document.querySelectorAll('.sb-group-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   currentGroupFilter = g;
@@ -2868,6 +2943,35 @@ function toggleStar(e, star) {
   const row = star.closest('.sb-body-item');
   row.classList.toggle('fav', star.classList.contains('lit'));
 }
+
+// ══════════════════════════════════════════
+// MOBILE MENU
+// ══════════════════════════════════════════
+
+function toggleMobileMenu() {
+  const sidebar  = document.querySelector('.sidebar');
+  const overlay  = document.getElementById('mobileOverlay');
+  const btn      = document.getElementById('mobileMenuBtn');
+  const isOpen   = sidebar && sidebar.classList.contains('mobile-open');
+  if (isOpen) { closeMobileMenu(); }
+  else {
+    if (sidebar) sidebar.classList.add('mobile-open');
+    if (overlay) overlay.style.display = 'block';
+    if (btn)     btn.textContent = '✕';
+  }
+}
+
+function closeMobileMenu() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('mobileOverlay');
+  const btn     = document.getElementById('mobileMenuBtn');
+  if (sidebar) sidebar.classList.remove('mobile-open');
+  if (overlay) overlay.style.display = 'none';
+  if (btn)     btn.textContent = '☰';
+}
+
+// Close mobile menu when a group/filter is selected
+const _origSetGroup = typeof setGroup === 'function' ? setGroup : null;
 
 // ══════════════════════════════════════════
 // WATCHLIST
@@ -4951,5 +5055,10 @@ if (appState.activeUserId && activeUser()) {
   pingBackend(); // immediate ping on load
 
 </script>
+  <!-- Mobile sidebar overlay backdrop -->
+  <div id="mobileOverlay" onclick="closeMobileMenu()"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);
+           z-index:199;backdrop-filter:blur(2px)"></div>
+
 </body>
 </html>P
