@@ -1913,7 +1913,7 @@ body {
     </nav>
 
     <div class="topbar-right">
-          <button id="alertBellBtn" onclick="toggleAlertHistory()"
+          <button id="alertBellBtn" onclick="toggleAlertHistory()" title="Alerts &amp; keyword settings"
             style="position:relative;background:none;border:none;cursor:pointer;font-size:18px;padding:4px 6px;border-radius:6px;color:var(--text2);display:flex;align-items:center"
             title="Alerts">
             🔔
@@ -4226,11 +4226,202 @@ let _alertHistory = [];
 function toggleAlertHistory() {
   const existing = document.getElementById('alertPanel');
   if (existing) { existing.remove(); return; }
-  if (_alertHistory.length) {
-    showAlertPanel(_alertHistory, activeProfile() || { name: 'Your alerts' });
+  showAlertManager('alerts');
+}
+
+function showAlertManager(tab) {
+  document.getElementById('alertPanel')?.remove();
+
+  const p = activeProfile();
+  const keywords   = p ? (p.keywords   || []) : [];
+  const alertTypes = p ? (p.alertTypes || ['approval','rejection','guidance']) : [];
+  const ALL_TYPES  = ['approval','rejection','guidance','decision'];
+
+  const panel = document.createElement('div');
+  panel.id = 'alertPanel';
+  panel.style.cssText = `position:fixed;bottom:24px;right:24px;width:380px;max-height:540px;
+    background:var(--surface);border:1px solid var(--border2);
+    border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.35);
+    z-index:9000;overflow:hidden;display:flex;flex-direction:column;
+    animation:slideUp .2s ease`;
+
+  // Header with tabs
+  panel.innerHTML = `
+    <div style="padding:12px 16px 0;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-weight:700;font-size:13px;color:var(--text1)">🔔 Alerts</div>
+        <button onclick="document.getElementById('alertPanel').remove()"
+          style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;
+                 padding:0 4px;line-height:1">✕</button>
+      </div>
+      <div style="display:flex;gap:0" id="alertManagerTabs">
+        <button onclick="showAlertManager('alerts')"
+          style="flex:1;padding:6px;border:none;border-bottom:2px solid ${tab==='alerts'?'var(--accent)':'transparent'};
+                 background:none;font-size:12px;font-weight:${tab==='alerts'?'600':'400'};
+                 color:${tab==='alerts'?'var(--accent)':'var(--text3)'};cursor:pointer">
+          Recent Alerts ${_alertHistory.length ? '<span style="background:var(--accent);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">'+_alertHistory.length+'</span>' : ''}
+        </button>
+        <button onclick="showAlertManager('settings')"
+          style="flex:1;padding:6px;border:none;border-bottom:2px solid ${tab==='settings'?'var(--accent)':'transparent'};
+                 background:none;font-size:12px;font-weight:${tab==='settings'?'600':'400'};
+                 color:${tab==='settings'?'var(--accent)':'var(--text3)'};cursor:pointer">
+          ⚙ Settings ${keywords.length ? '<span style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">'+keywords.length+'</span>' : ''}
+        </button>
+      </div>
+    </div>
+    <div style="overflow-y:auto;flex:1" id="alertManagerBody"></div>`;
+
+  // Populate body based on tab
+  const body = panel.querySelector('#alertManagerBody');
+
+  if (tab === 'alerts') {
+    if (_alertHistory.length === 0) {
+      body.innerHTML = `<div style="padding:32px 16px;text-align:center;color:var(--text3);font-size:13px">
+        No alerts yet.<br>
+        <span style="font-size:12px">Alerts appear when new feed items match your keywords.</span><br><br>
+        <button onclick="showAlertManager('settings')"
+          style="padding:7px 16px;border-radius:8px;border:1px solid var(--accent);
+                 background:transparent;color:var(--accent);font-size:12px;cursor:pointer">
+          Set up keywords →
+        </button>
+      </div>`;
+    } else {
+      body.innerHTML = _alertHistory.slice(0,10).map(item => `
+        <a href="${item.link||'#'}" target="_blank" rel="noopener"
+          style="display:block;padding:10px 16px;border-bottom:1px solid var(--border);
+                 text-decoration:none;color:inherit"
+          onmouseover="this.style.background='var(--surface2)'"
+          onmouseout="this.style.background=''">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span style="font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;
+              background:${item.tag==='approval'?'var(--green-lt)':item.tag==='rejection'?'var(--red-lt)':'var(--accent-lt)'};
+              color:${item.tag==='approval'?'var(--green)':item.tag==='rejection'?'var(--red)':'var(--accent)'}">
+              ${item.tag.toUpperCase()}</span>
+            <span style="font-size:10px;color:var(--text3)">${item.body}</span>
+            <span style="margin-left:auto;font-size:10px;color:var(--text3)">${item.time}</span>
+          </div>
+          <div style="font-size:12px;font-weight:500;line-height:1.4">
+            ${item.title.slice(0,90)}${item.title.length>90?'…':''}
+          </div>
+        </a>`).join('') +
+        (_alertHistory.length > 10 ? `<div style="padding:8px 16px;font-size:11px;color:var(--text3)">
+          + ${_alertHistory.length-10} more</div>` : '') +
+        `<div style="padding:8px 16px;border-top:1px solid var(--border)">
+          <button onclick="_alertHistory=[];updateAlertBadge(0);showAlertManager('alerts')"
+            style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;
+                   text-decoration:underline">Clear history</button>
+        </div>`;
+    }
   } else {
-    showToast('No alerts yet — alerts appear when new items match your profile');
+    // Settings tab
+    body.innerHTML = `
+      <div style="padding:14px 16px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;
+                    letter-spacing:.06em;margin-bottom:8px">Keywords</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">
+          Alerts fire when any of these terms appear in a feed item title or body name.
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <input id="alertKwInput" placeholder="e.g. pembrolizumab, NSCLC, CAR-T…"
+            onkeydown="if(event.key==='Enter')addAlertKeyword()"
+            style="flex:1;padding:7px 10px;background:var(--surface2);border:1px solid var(--border2);
+                   border-radius:8px;font-size:12px;color:var(--text);outline:none">
+          <button onclick="addAlertKeyword()"
+            style="padding:7px 14px;border-radius:8px;border:none;background:var(--accent);
+                   color:white;font-size:12px;font-weight:600;cursor:pointer">Add</button>
+        </div>
+        <div id="alertKwTags" style="display:flex;flex-wrap:wrap;gap:5px;min-height:28px;
+             margin-bottom:16px"></div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;
+                    letter-spacing:.06em;margin-bottom:8px">Alert on</div>
+        <div id="alertTypeChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px"></div>
+
+        <div style="font-size:11px;color:var(--text3)">
+          Changes apply immediately to the next feed refresh.
+        </div>
+      </div>`;
+
+    // Render keyword chips
+    function renderAlertKwTags() {
+      const p2 = activeProfile();
+      const kws = p2 ? (p2.keywords || []) : [];
+      const container = panel.querySelector('#alertKwTags');
+      if (!container) return;
+      container.innerHTML = kws.length
+        ? kws.map(kw => `
+          <span style="display:flex;align-items:center;gap:4px;padding:3px 8px 3px 10px;
+                       border-radius:20px;background:var(--accent-lt);border:1px solid var(--accent-md);
+                       font-size:12px;color:var(--accent)">
+            ${kw}
+            <button onclick="removeAlertKeyword('${kw.replace(/'/g,"\'")}',this)"
+              style="background:none;border:none;color:var(--accent);cursor:pointer;
+                     font-size:13px;padding:0;line-height:1;opacity:.7">✕</button>
+          </span>`).join('')
+        : '<span style="font-size:12px;color:var(--text3);font-style:italic">No keywords yet — add some above</span>';
+    }
+    renderAlertKwTags();
+
+    // Render alert type chips
+    const typeContainer = panel.querySelector('#alertTypeChips');
+    ALL_TYPES.forEach(t => {
+      const active = alertTypes.includes(t);
+      const chip = document.createElement('button');
+      chip.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+      chip.style.cssText = `padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;
+        border:1px solid ${active?'var(--accent)':'var(--border2)'};
+        background:${active?'rgba(79,70,229,.1)':'transparent'};
+        color:${active?'var(--accent)':'var(--text3)'};transition:all .15s`;
+      chip.onclick = () => {
+        const p3 = activeProfile();
+        if (!p3) return;
+        if (!p3.alertTypes) p3.alertTypes = [...ALL_TYPES];
+        const i = p3.alertTypes.indexOf(t);
+        if (i >= 0) p3.alertTypes.splice(i, 1); else p3.alertTypes.push(t);
+        saveAppState();
+        // Re-render chips
+        chip.style.borderColor  = p3.alertTypes.includes(t)?'var(--accent)':'var(--border2)';
+        chip.style.background   = p3.alertTypes.includes(t)?'rgba(79,70,229,.1)':'transparent';
+        chip.style.color        = p3.alertTypes.includes(t)?'var(--accent)':'var(--text3)';
+      };
+      typeContainer.appendChild(chip);
+    });
+
+    // Wire add/remove to refresh tags
+    panel._renderKwTags = renderAlertKwTags;
   }
+
+  document.body.appendChild(panel);
+}
+
+function addAlertKeyword() {
+  const inp = document.getElementById('alertKwInput');
+  if (!inp) return;
+  const val = inp.value.trim().toLowerCase();
+  if (!val) return;
+  const p = activeProfile();
+  if (!p) { showToast('Sign in to save keywords'); return; }
+  if (!p.keywords) p.keywords = [];
+  if (!p.keywords.includes(val)) {
+    p.keywords.push(val);
+    saveAppState();
+  }
+  inp.value = '';
+  // Also add to wizard keywords for consistency
+  if (!wizardData.keywords.includes(val)) wizardData.keywords.push(val);
+  // Refresh tags in panel
+  const panel = document.getElementById('alertPanel');
+  if (panel && panel._renderKwTags) panel._renderKwTags();
+}
+
+function removeAlertKeyword(kw) {
+  const p = activeProfile();
+  if (!p) return;
+  p.keywords = (p.keywords || []).filter(k => k !== kw);
+  saveAppState();
+  wizardData.keywords = wizardData.keywords.filter(k => k !== kw);
+  const panel = document.getElementById('alertPanel');
+  if (panel && panel._renderKwTags) panel._renderKwTags();
 }
 
 
