@@ -589,6 +589,41 @@ body {
 .fc-star:hover { color: var(--amber); background: var(--amber-lt); }
 .fc-star.starred { color: var(--amber); }
 
+/* IRP selector + compare */
+.irp-sel-toggle {
+  padding: 5px 12px; border-radius: 6px;
+  border: 1px solid var(--border2); background: var(--surface2);
+  color: var(--text2); font-size: 12px; cursor: pointer;
+}
+.irp-sel-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.irp-sel-group { margin-bottom: 10px; }
+.irp-sel-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+.irp-sel-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.irp-sel-chip { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; border: 1px solid var(--border2); font-size: 11px; color: var(--text3); cursor: pointer; transition: all .15s; }
+.irp-sel-chip input { display: none; }
+.irp-sel-chip.on { border-color: var(--accent); color: var(--accent); background: rgba(79,70,229,.08); }
+.irp-sel-all { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border2); background: none; color: var(--text3); font-size: 11px; cursor: pointer; }
+.irp-ref-chip { padding: 2px 7px; border-radius: 10px; background: var(--surface2); font-size: 11px; color: var(--text2); }
+/* Compare view */
+.irp-compare-wrap { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.irp-compare-picker { margin-bottom: 14px; }
+.irp-compare-picker-label { font-size: 12px; color: var(--text3); margin-bottom: 7px; }
+.irp-compare-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.irp-compare-chip { padding: 3px 9px; border-radius: 20px; border: 1px solid var(--border2); font-size: 11px; color: var(--text3); cursor: pointer; transition: all .15s; }
+.irp-compare-chip.sel { border-color: var(--accent); background: rgba(79,70,229,.1); color: var(--accent); }
+.irp-compare-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.irp-compare-card { border: 1px solid var(--border2); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.irp-compare-card-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--surface2); }
+.irp-compare-card-flag { font-size: 24px; }
+.irp-compare-card-name { font-size: 15px; font-weight: 700; color: var(--text1); }
+.irp-compare-card-tier { font-size: 11px; font-weight: 600; }
+.irp-compare-remove { margin-left: auto; background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 2px; }
+.irp-compare-card-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+.irp-compare-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.irp-compare-key { color: var(--text3); flex-shrink: 0; }
+.irp-compare-val { color: var(--text2); text-align: right; font-size: 11px; }
+.irp-compare-policy { font-size: 11px; color: var(--text2); line-height: 1.5; padding: 8px; background: var(--surface2); border-radius: 6px; margin-top: 4px; }
+
 /* ─── ANNOUNCEMENTS PANEL ───────────────────────────────────────── */
 .ann-wrap {
   flex: 1;
@@ -2360,15 +2395,54 @@ body {
           </div>
         </div>
         <div class="irp-toolbar">
-          <p class="irp-desc">Arrow direction = "references this nation's price when setting reimbursement." Node size = how many nations reference that country. Hover for detail.</p>
-          <div class="irp-view-toggle">
-            <button class="irp-view-btn active" onclick="setIrpView('network',this)">Network</button>
-            <button class="irp-view-btn" onclick="setIrpView('matrix',this)">Matrix</button>
+          <p class="irp-desc">Click any country to see its IRP policy. Arrow = "references this country's price." Node size = times referenced.</p>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div class="irp-view-toggle">
+              <button class="irp-view-btn active" onclick="setIrpView('network',this)">Network</button>
+              <button class="irp-view-btn" onclick="setIrpView('matrix',this)">Matrix</button>
+              <button class="irp-view-btn" onclick="setIrpView('compare',this)">Compare</button>
+            </div>
+            <button class="irp-sel-toggle" onclick="toggleIrpSelector()">🌐 Countries ▾</button>
+          </div>
+          <!-- Country selector dropdown -->
+          <div id="irpSelectorWrap" style="display:none;margin-top:8px">
+            <div id="irpSelectorList"></div>
           </div>
         </div>
         <div class="irp-body">
           <canvas id="irpCanvas"></canvas>
-          <div class="irp-matrix-wrap" id="irpMatrix"></div>
+          <div class="irp-matrix-wrap" id="irpMatrix" style="display:none"></div>
+          <div class="irp-compare-wrap" id="irpCompare" style="display:none"></div>
+
+          <!-- Country card popup -->
+          <div id="irpCardPopup" style="display:none;position:absolute;top:50%;left:50%;
+               transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);
+               border-radius:12px;padding:20px;width:340px;max-width:90vw;z-index:50;
+               box-shadow:0 8px 32px rgba(0,0,0,0.4);flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+              <span id="irpCardFlag" style="font-size:28px"></span>
+              <div>
+                <div id="irpCardName" style="font-size:18px;font-weight:700;color:var(--text1)"></div>
+                <div id="irpCardBody" style="font-size:11px;color:var(--text3)"></div>
+              </div>
+              <button onclick="closeIrpCard()" style="margin-left:auto;background:none;border:none;
+                color:var(--text3);font-size:18px;cursor:pointer;padding:2px 6px">✕</button>
+            </div>
+            <div id="irpCardScore" style="font-size:12px;font-weight:600;color:var(--accent)"></div>
+            <div id="irpCardPolicy" style="font-size:12px;color:var(--text2);line-height:1.5;
+                 padding:10px;background:var(--surface2);border-radius:8px"></div>
+            <div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px">References prices from:</div>
+              <div id="irpCardRefsOut" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Referenced by:</div>
+              <div id="irpCardRefsIn" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+            </div>
+            <button id="irpCardCompareBtn" style="margin-top:4px;padding:8px 14px;border-radius:8px;
+              border:1px solid var(--accent);background:transparent;color:var(--accent);
+              font-size:12px;font-weight:600;cursor:pointer"></button>
+          </div>
 
           <div class="irp-legend">
             <div class="irp-legend-title">Legend</div>
@@ -2640,1013 +2714,484 @@ const annData = [
 ];
 
 // IRP Network
+// ══════════════════════════════════════════
+// IRP COMPARATOR — v2
+// Views: Network | Matrix | Compare (4-country)
+// Features: US included, country selector, click-to-card popup
+// ══════════════════════════════════════════
+
 const irpNodes = [
-  {id:'DE', label:'Germany',     x:0.40, y:0.30, score:11, color:'#4f46e5', tier:0},
-  {id:'UK', label:'UK',          x:0.22, y:0.22, score:10, color:'#4f46e5', tier:0},
-  {id:'FR', label:'France',      x:0.30, y:0.44, score:9,  color:'#4f46e5', tier:0},
-  {id:'SE', label:'Sweden',      x:0.42, y:0.14, score:7,  color:'#7c3aed', tier:1},
-  {id:'BE', label:'Belgium',     x:0.28, y:0.28, score:6,  color:'#7c3aed', tier:1},
-  {id:'NL', label:'Netherlands', x:0.45, y:0.22, score:6,  color:'#7c3aed', tier:1},
-  {id:'IT', label:'Italy',       x:0.52, y:0.42, score:6,  color:'#7c3aed', tier:1},
-  {id:'ES', label:'Spain',       x:0.22, y:0.52, score:5,  color:'#7c3aed', tier:1},
-  {id:'AU', label:'Australia',   x:0.75, y:0.58, score:5,  color:'#d97706', tier:3},
-  {id:'CA', label:'Canada',      x:0.10, y:0.36, score:5,  color:'#d97706', tier:3},
-  {id:'AT', label:'Austria',     x:0.58, y:0.28, score:4,  color:'#059669', tier:2},
-  {id:'CH', label:'Switzerland', x:0.60, y:0.40, score:4,  color:'#059669', tier:2},
-  {id:'PL', label:'Poland',      x:0.62, y:0.18, score:3,  color:'#059669', tier:2},
-  {id:'CZ', label:'Czech Rep.',  x:0.70, y:0.28, score:3,  color:'#059669', tier:2},
-  {id:'HU', label:'Hungary',     x:0.72, y:0.40, score:3,  color:'#059669', tier:2},
-  {id:'SK', label:'Slovakia',    x:0.68, y:0.52, score:3,  color:'#059669', tier:2},
-  {id:'GR', label:'Greece',      x:0.46, y:0.58, score:3,  color:'#059669', tier:2},
-  {id:'PT', label:'Portugal',    x:0.12, y:0.58, score:3,  color:'#059669', tier:2},
-  {id:'JP', label:'Japan',       x:0.82, y:0.20, score:4,  color:'#d97706', tier:3},
-  {id:'KR', label:'S. Korea',    x:0.82, y:0.52, score:3,  color:'#d97706', tier:3},
-  {id:'SG', label:'Singapore',   x:0.78, y:0.70, score:3,  color:'#d97706', tier:3},
-  {id:'IL', label:'Israel',      x:0.30, y:0.72, score:2,  color:'#d97706', tier:3},
-  {id:'RO', label:'Romania',     x:0.58, y:0.62, score:2,  color:'#059669', tier:2},
-  {id:'BG', label:'Bulgaria',    x:0.64, y:0.68, score:2,  color:'#059669', tier:2},
+  // Tier 0 — Anchor (most referenced globally)
+  {id:'DE', label:'Germany',      flag:'🇩🇪', x:0.42, y:0.30, score:11, color:'#4f46e5', tier:0,
+   body:'G-BA / IQWiG', policy:'AMNOG — mandatory benefit assessment for all new drugs. Reimbursement price negotiated with GKV-SV post-assessment.', anchor:true},
+  {id:'UK', label:'UK',           flag:'🇬🇧', x:0.22, y:0.22, score:10, color:'#4f46e5', tier:0,
+   body:'NICE / SMC', policy:'NICE appraisals set the baseline. Scotland uses SMC. Managed access schemes common for oncology.', anchor:true},
+  {id:'FR', label:'France',       flag:'🇫🇷', x:0.30, y:0.46, score:9,  color:'#4f46e5', tier:0,
+   body:'HAS', policy:'SMR/ASMR rating by HAS determines pricing. ASMR I–III = premium; IV–V = minimal benefit.', anchor:true},
+  // Tier 1 — Major reference
+  {id:'SE', label:'Sweden',       flag:'🇸🇪', x:0.44, y:0.14, score:7,  color:'#7c3aed', tier:1,
+   body:'TLV', policy:'TLV conducts cost-effectiveness analysis. Applies 3 need/severity tiers. Prices reference EU basket.'},
+  {id:'BE', label:'Belgium',      flag:'🇧🇪', x:0.26, y:0.28, score:6,  color:'#7c3aed', tier:1,
+   body:'KCE / INAMI', policy:'KCE provides HTA advice. INAMI negotiates reimbursement. Class 1 drugs (major advance) get 24-month temp access.'},
+  {id:'NL', label:'Netherlands',  flag:'🇳🇱', x:0.46, y:0.20, score:6,  color:'#7c3aed', tier:1,
+   body:'ZIN', policy:'ZIN conducts assessment (pakketadvies). Price negotiations for high-cost drugs via horizon scanning.'},
+  {id:'IT', label:'Italy',        flag:'🇮🇹', x:0.52, y:0.44, score:6,  color:'#7c3aed', tier:1,
+   body:'AIFA', policy:'AIFA classifies drugs into reimbursement classes. Managed entry agreements (MEAs) common. References EU5 prices.'},
+  {id:'ES', label:'Spain',        flag:'🇪🇸', x:0.22, y:0.54, score:5,  color:'#7c3aed', tier:1,
+   body:'AEMPS / CIPM', policy:'CIPM sets reimbursement prices. Decentralised HTA system. Comunidades may add regional restrictions.'},
+  // Tier 2 — Selective reference
+  {id:'AT', label:'Austria',      flag:'🇦🇹', x:0.58, y:0.26, score:4,  color:'#059669', tier:2,
+   body:'AGES', policy:'References DE, UK, FR, BE, SE, NL basket. EKO list controls reimbursement. Mandatory external reference pricing.'},
+  {id:'CH', label:'Switzerland',  flag:'🇨🇭', x:0.60, y:0.40, score:4,  color:'#059669', tier:2,
+   body:'Swissmedic / BAG', policy:'3-pillar system: therapeutic comparison, foreign country comparison (DE/FR/UK/AT/BE/NL/SE), cost-effectiveness.'},
+  {id:'PL', label:'Poland',       flag:'🇵🇱', x:0.62, y:0.18, score:3,  color:'#059669', tier:2,
+   body:'AOTM', policy:'References EU5 prices. Refund groups with price caps. Budget impact threshold PLN 3M/year triggers negotiation.'},
+  {id:'CZ', label:'Czech Rep.',   flag:'🇨🇿', x:0.70, y:0.28, score:3,  color:'#059669', tier:2,
+   body:'SUKL', policy:'Maximum reimbursement prices set by SUKL. References EU basket (DE/FR/UK/AT weighted average).'},
+  {id:'HU', label:'Hungary',      flag:'🇭🇺', x:0.72, y:0.40, score:3,  color:'#059669', tier:2,
+   body:'NEAK / OGYEI', policy:'OGYEI HTA assessment; NEAK sets price. References EU basket; lower income = lower reference price tolerance.'},
+  {id:'SK', label:'Slovakia',     flag:'🇸🇰', x:0.68, y:0.52, score:3,  color:'#059669', tier:2,
+   body:'SUKL SK', policy:'References CZ, AT, HU prices. Automatic price adjustment if reference basket prices change.'},
+  {id:'GR', label:'Greece',       flag:'🇬🇷', x:0.46, y:0.58, score:3,  color:'#059669', tier:2,
+   body:'EOF', policy:'References EU basket average − 10%. Mandatory price cuts tied to GDP. Claw-back mechanism for overspend.'},
+  {id:'PT', label:'Portugal',     flag:'🇵🇹', x:0.12, y:0.58, score:3,  color:'#059669', tier:2,
+   body:'INFARMED', policy:'INFARMED references ES/FR/IT basket. Economic evaluation required for high-cost drugs. Generics mandatory substitution.'},
+  {id:'RO', label:'Romania',      flag:'🇷🇴', x:0.58, y:0.64, score:2,  color:'#059669', tier:2,
+   body:'CNAS / ANMDM', policy:'References lowest EU price among basket countries. Very price-sensitive; manufacturers often decline launch.'},
+  {id:'BG', label:'Bulgaria',     flag:'🇧🇬', x:0.64, y:0.70, score:2,  color:'#059669', tier:2,
+   body:'NHIF', policy:'References lowest EU price. Budget pressure often blocks access. Oncology drugs subject to separate managed access.'},
+  // Tier 3 — Other regions
+  {id:'JP', label:'Japan',        flag:'🇯🇵', x:0.82, y:0.18, score:4,  color:'#d97706', tier:3,
+   body:'PMDA / MHLW', policy:'Drug pricing calculated from US price (R zone), EU price, and cost-of-production. Foreign price adjustment applied annually.'},
+  {id:'US', label:'USA',          flag:'🇺🇸', x:0.06, y:0.18, score:3,  color:'#d97706', tier:3,
+   body:'FDA / CMS', policy:'IRA (2022) enables Medicare drug price negotiation for first time. List prices set by manufacturer; PBM rebates obscure net price. Referenced by JP, KR.'},
+  {id:'AU', label:'Australia',    flag:'🇦🇺', x:0.76, y:0.58, score:5,  color:'#d97706', tier:3,
+   body:'PBAC / TGA', policy:'PBAC recommends reimbursement via cost-effectiveness. References internal comparators, not explicit IRP basket. Referenced by CA, KR, SG.'},
+  {id:'CA', label:'Canada',       flag:'🇨🇦', x:0.08, y:0.38, score:5,  color:'#d97706', tier:3,
+   body:'CDA-AMC / pCPA', policy:'PMPRB (reforming) caps ex-factory prices. pCPA negotiates net prices. References UK/DE/AU/SE basket.'},
+  {id:'KR', label:'S. Korea',     flag:'🇰🇷', x:0.82, y:0.52, score:3,  color:'#d97706', tier:3,
+   body:'NECA / HIRA', policy:'HIRA sets reimbursement price based on AU, UK, US, DE, FR basket. Economic evaluation required for premium pricing.'},
+  {id:'SG', label:'Singapore',    flag:'🇸🇬', x:0.78, y:0.70, score:3,  color:'#d97706', tier:3,
+   body:'ACE / MOH', policy:'ACE drug guidance informs MOH subsidies. References AU, UK, global prices. Drug formulary split into standard/non-standard.'},
+  {id:'IL', label:'Israel',       flag:'🇮🇱', x:0.30, y:0.74, score:2,  color:'#d97706', tier:3,
+   body:'IMOH', policy:'Health basket updated annually. References AU, UK, DE prices. Budget cap drives strong negotiating position.'},
 ];
 
 const irpEdges = [
+  // Austria references
   ['AT','DE'],['AT','UK'],['AT','FR'],['AT','BE'],['AT','SE'],['AT','NL'],
-  ['CH','DE'],['CH','UK'],['CH','FR'],['CH','BE'],['CH','SE'],
+  // Switzerland references
+  ['CH','DE'],['CH','UK'],['CH','FR'],['CH','BE'],['CH','SE'],['CH','NL'],['CH','AT'],
+  // Poland references
   ['PL','DE'],['PL','UK'],['PL','FR'],['PL','BE'],['PL','SE'],
+  // Czech Rep references
   ['CZ','DE'],['CZ','UK'],['CZ','FR'],['CZ','AT'],
+  // Slovakia references
   ['SK','DE'],['SK','AT'],['SK','CZ'],['SK','FR'],
+  // Hungary references
   ['HU','DE'],['HU','UK'],['HU','FR'],['HU','AT'],
+  // Greece references
   ['GR','DE'],['GR','UK'],['GR','FR'],['GR','IT'],['GR','ES'],
+  // Portugal references
   ['PT','FR'],['PT','ES'],['PT','DE'],['PT','UK'],
+  // Romania references
   ['RO','DE'],['RO','FR'],['RO','UK'],
+  // Bulgaria references
   ['BG','DE'],['BG','FR'],
+  // Spain references
   ['ES','FR'],['ES','DE'],['ES','UK'],['ES','IT'],
+  // Italy references
   ['IT','DE'],['IT','FR'],['IT','UK'],['IT','ES'],['IT','BE'],
+  // Belgium references
   ['BE','UK'],['BE','FR'],['BE','DE'],['BE','NL'],['BE','SE'],
+  // Netherlands references
   ['NL','UK'],['NL','DE'],['NL','FR'],['NL','BE'],['NL','SE'],
+  // Sweden references
   ['SE','UK'],['SE','DE'],['SE','FR'],['SE','BE'],
+  // Australia references
   ['AU','UK'],['AU','DE'],['AU','SE'],['AU','NL'],
+  // Canada references
   ['CA','UK'],['CA','DE'],['CA','AU'],['CA','SE'],
+  // Japan references
   ['JP','UK'],['JP','DE'],['JP','FR'],['JP','US'],
+  // S. Korea references
   ['KR','AU'],['KR','DE'],['KR','UK'],['KR','US'],
+  // Singapore references
   ['SG','UK'],['SG','AU'],['SG','DE'],
+  // Israel references
   ['IL','UK'],['IL','DE'],['IL','AU'],
 ];
 
-const usaFDA = [
-  { title:'Full approval granted: Donanemab (Kisunla) for early symptomatic Alzheimer\'s disease', meta:'Biologics License Application · Mar 28, 2026', type:'fda', cat:'Approval' },
-  { title:'Priority Review granted: Novel GLP-1/GIP dual agonist for metabolic dysfunction-associated steatohepatitis (MASH) with fibrosis', meta:'NDA Submission · Mar 27, 2026', type:'fda', cat:'Priority Review' },
-  { title:'Advisory Committee scheduled: Panobinostat for pediatric medulloblastoma — June 12, 2026', meta:'AdCom · Mar 26, 2026', type:'fda', cat:'AdCom' },
-  { title:'Safety communication: Updated REMS requirements for opioid analgesics with immediate-release formulations', meta:'REMS Update · Mar 25, 2026', type:'fda', cat:'Safety' },
-  { title:'Breakthrough therapy designation granted: Bispecific antibody targeting CD3×CD20 in relapsed/refractory follicular lymphoma', meta:'Designations · Mar 24, 2026', type:'fda', cat:'Designation' },
-  { title:'Draft guidance released: Decentralized clinical trial considerations for rare neuromuscular diseases', meta:'Guidance Document · Mar 22, 2026', type:'fda', cat:'Guidance' },
-  { title:'Complete response letter issued for oral GLP-1 agonist — CMC deficiencies cited', meta:'CRL · Mar 20, 2026', type:'fda', cat:'CRL' },
-];
-
-const usaCMS = [
-  { title:'IRA Year 3 negotiations: Medicare Part D selected drugs list published — 19 products named', meta:'IRA Drug Negotiation · Mar 28, 2026', type:'cms', cat:'IRA' },
-  { title:'Final rule: Medicare Advantage network adequacy standards updated for 2027 contract year', meta:'Final Rule · Mar 26, 2026', type:'cms', cat:'Rulemaking' },
-  { title:'CMMI Innovation Model: ACO REACH programme — 2026 performance year reporting portal opens', meta:'CMMI · Mar 25, 2026', type:'cms', cat:'Innovation' },
-  { title:'Coverage with Evidence Development clarification: CAR-T registry data requirements and timeline updated', meta:'NCD Update · Mar 24, 2026', type:'cms', cat:'CED' },
-  { title:'Part B drug payment update: ASP quarterly rates for Q1 2026 published across all HCPCS J-codes', meta:'Reimbursement · Mar 22, 2026', type:'cms', cat:'Part B' },
-  { title:'Proposed rule: Changes to Medicare drug price negotiation programme small biotech exemption criteria', meta:'Proposed Rule · Mar 20, 2026', type:'cms', cat:'IRA' },
-  { title:'CMS posts 2026 Medicare Part D plan formulary crosswalk — specialty tier impact analysis', meta:'Formulary · Mar 18, 2026', type:'cms', cat:'Part D' },
-];
-
-const usaHHS = [
-  { title:'HHS Secretary speech: Executive action on most-favored-nation drug pricing model — implementation timeline announced', meta:'Policy Announcement · Mar 28, 2026', type:'hhs', cat:'Policy' },
-  { title:'NIH / ARPA-H rare disease platform: $300M funding opportunity — applications open through June 30', meta:'ARPA-H Funding · Mar 27, 2026', type:'hhs', cat:'Funding' },
-  { title:'ASPE report: Out-of-pocket cost burden for specialty and biologic drugs — 2025 full-year data', meta:'Research · Mar 26, 2026', type:'hhs', cat:'Research' },
-  { title:'CDC advisory: Updated clinical utility framework for pharmacogenomic testing in primary care settings', meta:'CDC Guidance · Mar 24, 2026', type:'hhs', cat:'Guidance' },
-  { title:'BARDA contract awarded to Moderna: $1.2B for next-generation mRNA platform for pandemic influenza preparedness', meta:'BARDA Contract · Mar 22, 2026', type:'hhs', cat:'Contract' },
-  { title:'AHRQ: New comparative effectiveness review — GLP-1 agonists vs bariatric surgery in severe obesity', meta:'AHRQ Report · Mar 20, 2026', type:'hhs', cat:'CER' },
-  { title:'HHS Office of the Assistant Secretary for Health: National strategy for rare disease research published', meta:'Strategy Document · Mar 18, 2026', type:'hhs', cat:'Strategy' },
-];
-
-// ══════════════════════════════════════════
-// NAV
-// ══════════════════════════════════════════
-// switchTab — declared here so it's available before assignment below
-var switchTab = function(el, silent) {
-  // Default implementation until the full version is assigned below
-  const tab = el.dataset.tab;
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  el.classList.add('active');
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  const panel = document.getElementById('panel-' + tab);
-  if (panel) panel.classList.add('active');
-  if (tab === 'irp') setTimeout(initIRP, 60);
-};
-
-function setGroup(g, el) {
-  // Close mobile sidebar when a filter is tapped
-  if (window.innerWidth <= 768) { closeMobileMenu(); }
-  document.querySelectorAll('.sb-group-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  currentGroupFilter = g;
-  window._manualBodyFilter = false; // group click resets manual filter
-  showGroupFilterBadge(g);
-
-  // For EU and G7: check the matching sidebar boxes visually (cosmetic only)
-  // Body filtering is handled by fetchAndRenderFeed via currentGroupFilter
-  const G7_BODIES = ['NICE','HAS','IQWiG','G-BA','AIFA','PMDA','Health Canada','FDA'];
-  const EU_BODIES = ['EMA','EUHA','NICE','HAS','IQWiG','G-BA','KCE','SBU','HIQA',
-                     'TLV','ZIN','SMC','SFOPH','AIFA','AOTMiT','AOTM'];
-
-  document.querySelectorAll('.sb-body-item').forEach(row => {
-    const nameEl = row.querySelector('.sb-body-name');
-    if (!nameEl) return;
-    const name = nameEl.textContent.trim();
-    const check = row.querySelector('.sb-check');
-    if (!check) return;
-
-    let shouldCheck = true; // default all checked
-    if (g === 'eu') {
-      shouldCheck = EU_BODIES.some(b => name.toLowerCase().includes(b.toLowerCase()));
-    } else if (g === 'g7') {
-      shouldCheck = G7_BODIES.some(b => name.toLowerCase().includes(b.toLowerCase()));
-    }
-    shouldCheck ? check.classList.add('checked') : check.classList.remove('checked');
-  });
-
-  if (g === 'watchlist') {
-    applyWatchlistFilter();
-  } else {
-    fetchAndRenderFeed();
-  }
-}
-
-let currentGroupFilter = 'all';
-let currentSort = 'date'; // 'date' | 'irp' | 'tag'
-
-const GROUP_REGIONS = {
-  all:  null,
-  eu:   null,   // EU filtered by body list below, not region tag
-  irp:  'irp',
-  g7:   null,
-};
-
-const GROUP_BODIES = {
-  eu:  ['EMA / EUHA', 'EMA', 'EUHA', 'EUnetHTA', 'CHMP', 'NICE', 'IQWiG / G-BA', 'SMC'],
-  g7:  ['NICE', 'IQWiG', 'G-BA', 'HAS', 'AIFA', 'PMDA', 'Health Canada', 'FDA', 'CMS',
-         'IQWiG / G-BA'],
-};
-
-function getCheckedBodies() {
-  return [...document.querySelectorAll('.sb-body-item')]
-    .filter(row => row.querySelector('.sb-check.checked'))
-    .map(row => row.querySelector('.sb-body-name')?.textContent?.trim())
-    .filter(Boolean);
-}
-
-
-function setSort(sort, el) {
-  currentSort = sort;
-  // Update button styles
-  document.querySelectorAll('.sort-btn').forEach(btn => {
-    const active = btn.dataset.sort === sort;
-    btn.style.background = active ? 'var(--accent)' : 'var(--surface2)';
-    btn.style.color      = active ? 'white'         : 'var(--text2)';
-  });
-  fetchAndRenderFeed();
-}
-
-
-function showFeedLoading() {
-  const list = document.getElementById('feedList');
-  if (!list) return;
-  list.innerHTML = Array(6).fill(0).map(() => `
-    <div class="feed-skeleton-card">
-      <div class="skeleton sk-line sk-title"></div>
-      <div class="skeleton sk-line sk-body"></div>
-      <div class="skeleton sk-line sk-short"></div>
-    </div>`).join('');
-}
-
-function showFeedError(msg) {
-  const list = document.getElementById('feedList');
-  if (!list) return;
-  list.innerHTML = `
-    <div style="padding:48px 24px;text-align:center;color:var(--text3)">
-      <div style="font-size:32px;margin-bottom:12px">⚠️</div>
-      <div style="font-weight:600;font-size:14px;color:var(--text2);margin-bottom:6px">
-        Couldn't load feed
-      </div>
-      <div style="font-size:12px;margin-bottom:16px">${msg || 'Check your connection and try again.'}</div>
-      <button onclick="fetchAndRenderFeed()"
-        style="padding:8px 18px;background:var(--accent);color:white;border:none;
-               border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">
-        ↻ Try again
-      </button>
-    </div>`;
-}
-
-async function fetchAndRenderFeed(append = false) {
-  if (!BACKEND_ENABLED) { applyFeedFilters(); return; }
-
-  const q      = document.getElementById('feedSearch')?.value || '';
-  const region = GROUP_REGIONS[currentGroupFilter];
-  const tag    = activePillFilter === 'all' ? null : activePillFilter;
-
-  // Reset offset when doing a fresh fetch; use current offset when appending
-  if (!append) { feedOffset = 0; }
-  let url = BACKEND_URL + '/feed?limit=200&offset=' + feedOffset + '&sort=' + currentSort;
-  if (region && currentGroupFilter !== 'irp') url += '&region=' + region;
-  if (currentGroupFilter === 'irp')           url += '&irp=true';
-  if (tag && tag !== 'irp')                   url += '&tag=' + tag;
-  if (q)                                      url += '&q=' + encodeURIComponent(q);
-
-  // Show skeleton while loading (only when no current content or explicit refresh)
-  const feedList = document.getElementById('feedList');
-  const isEmpty = feedList && feedList.children.length === 0;
-  if (isEmpty || feedList?.querySelector('.feed-skeleton-card')) showFeedLoading();
-
-  try {
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error('Server returned ' + resp.status);
-    const data = await resp.json();
-    let items = data.items || [];
-    feedTotal  = data.total  || 0;
-    if (!append) { window._allFeedItems = items; }
-    else { window._allFeedItems = [...(window._allFeedItems||[]), ...items]; }
-    feedOffset = (append ? feedOffset : 0) + items.length;
-
-    // Group body filters — client-side since backend uses region tags
-    // Group body filtering: sidebar checkboxes handle manual selection
-    // IRP uses backend ?tag=irp param
-    // EU/G7 groups are visual intent signals — filtering improves as more data sources added
-    const checked = getCheckedBodies();
-    // Only apply checkbox filter when user has manually toggled individual boxes
-    // (not when setGroup set them — those are cosmetic for now)
-
-    // Manual sidebar checkbox filter — only applies when user has individually toggled
-    // boxes (not when quick group sync set them)
-    if (window._manualBodyFilter) {
-      const checked = getCheckedBodies();
-      if (checked.length > 0 && checked.length < 29) {
-        items = items.filter(i => checked.some(b => {
-          const ib = i.body.toLowerCase(), cb = b.toLowerCase();
-          return ib.includes(cb) || cb.includes(ib);
-        }));
-      }
-    }
-
-    // q already declared above — reuse it here
-    if (items.length > 0) {
-      if (append) {
-      renderFeedAppend(items, q);
-    } else {
-      renderFeed(items, q);
-    }
-    updateLoadMoreButton();
-      // Run alert engine against fresh items (only when not searching)
-      if (!q) setTimeout(() => runAlertEngine(items), 500);
-      // Show result count when searching
-      const countEl = document.getElementById('searchCount');
-      if (countEl && q) {
-        countEl.textContent = data.total + ' result' + (data.total !== 1 ? 's' : '');
-      }
-    } else if (q) {
-      // Show empty state for search
-      const grid = document.getElementById('feedGrid');
-      if (grid) grid.innerHTML = `<div style="padding:40px;text-align:center;opacity:.5;grid-column:1/-1">
-        <div style="font-size:32px;margin-bottom:8px">🔍</div>
-        <div style="font-weight:600">No results for "${q}"</div>
-        <div style="font-size:13px;margin-top:4px">Try the INN, brand name, or therapeutic area</div>
-      </div>`;
-      const countEl = document.getElementById('searchCount');
-      if (countEl) countEl.textContent = '0 results';
-    } else {
-      applyFeedFilters();
-    }
-  } catch(e) {
-    // Show error state — but only if the feed is currently showing skeletons
-    // (don't replace real content with an error on transient network blip)
-    const hasSkeleton = document.querySelector('#feedList .feed-skeleton-card');
-    if (hasSkeleton) {
-      showFeedError(e.message?.includes('fetch') ? 'Network error — is your connection active?' : null);
-    } else {
-      applyFeedFilters(); // silently keep existing content
-    }
-  }
-}
-
-function toggleCheck(row) {
-  const box = row.querySelector('.sb-check');
-  box.classList.toggle('checked');
-  window._manualBodyFilter = true; // user manually toggled a box
-  clearTimeout(toggleCheck._t);
-  toggleCheck._t = setTimeout(fetchAndRenderFeed, 400);
-}
-
-function toggleStar(e, star) {
-  e.stopPropagation();
-  star.classList.toggle('lit');
-  const row = star.closest('.sb-body-item');
-  row.classList.toggle('fav', star.classList.contains('lit'));
-}
-
-// ══════════════════════════════════════════
-// MOBILE MENU
-// ══════════════════════════════════════════
-
-function toggleMobileMenu() {
-  const sidebar  = document.querySelector('.sidebar');
-  const overlay  = document.getElementById('mobileOverlay');
-  const btn      = document.getElementById('mobileMenuBtn');
-  const isOpen   = sidebar && sidebar.classList.contains('mobile-open');
-  if (isOpen) { closeMobileMenu(); }
-  else {
-    if (sidebar) sidebar.classList.add('mobile-open');
-    if (overlay) overlay.style.display = 'block';
-    if (btn)     btn.textContent = '✕';
-  }
-}
-
-function closeMobileMenu() {
-  const sidebar = document.querySelector('.sidebar');
-  const overlay = document.getElementById('mobileOverlay');
-  const btn     = document.getElementById('mobileMenuBtn');
-  if (sidebar) sidebar.classList.remove('mobile-open');
-  if (overlay) overlay.style.display = 'none';
-  if (btn)     btn.textContent = '☰';
-}
-
-// Close mobile menu when a group/filter is selected
-const _origSetGroup = typeof setGroup === 'function' ? setGroup : null;
-
-// ══════════════════════════════════════════
-// WATCHLIST
-// ══════════════════════════════════════════
-
-// Load starred IDs from localStorage
-let starredIds = new Set(JSON.parse(localStorage.getItem('htaintel_starred') || '[]'));
-
-// Persist starred IDs
-function saveStarred() {
-  localStorage.setItem('htaintel_starred', JSON.stringify([...starredIds]));
-  updateWatchlistCount();
-}
-
-function clearWatchlist() {
-  if (starredIds.size === 0) return;
-  if (!confirm(`Remove all ${starredIds.size} item${starredIds.size===1?'':'s'} from your watchlist?`)) return;
-  starredIds.clear();
-  saveStarred();
-  // Un-star all visible cards
-  document.querySelectorAll('.fc-star.starred').forEach(el => el.classList.remove('starred'));
-  // If viewing watchlist, show empty state
-  if (currentGroupFilter === 'watchlist') applyWatchlistFilter();
-}
-
-// Toggle a feed item's starred state
-function toggleItemStar(e, itemId, el) {
-  e.preventDefault();
-  e.stopPropagation();
-  if (starredIds.has(itemId)) {
-    starredIds.delete(itemId);
-    el.classList.remove('starred');
-  } else {
-    starredIds.add(itemId);
-    el.classList.add('starred');
-  }
-  saveStarred();
-  // If currently viewing watchlist, refresh to remove/add item
-  if (currentGroupFilter === 'watchlist') {
-    applyWatchlistFilter();
-  }
-}
-
-// Update the watchlist count badge
-function updateWatchlistCount() {
-  const badge   = document.getElementById('grp-count-watchlist');
-  const clearRow = document.getElementById('watchlistClearRow');
-  if (badge)    badge.textContent = starredIds.size || '0';
-  if (clearRow) clearRow.style.display = starredIds.size > 0 ? 'block' : 'none';
-}
-
-// Apply watchlist filter to current feed cards
-function applyWatchlistFilter() {
-  const feedList = document.getElementById('feedList');
-  if (!feedList) return;
-  // Re-render from allFeedItems filtered to starred
-  const starred = (window._allFeedItems || []).filter(i => starredIds.has(i.id));
-  if (starred.length === 0) {
-    feedList.innerHTML = '<div style="padding:40px 0;text-align:center;color:var(--text3);font-size:14px">No items in your watchlist yet.<br>Click ★ on any feed item to add it.</div>';
-  } else {
-    renderFeed(starred, '');
-  }
-}
-
-// Call on load to initialise badge
-updateWatchlistCount();
-
-// ══════════════════════════════════════════
-// FEED
-// ══════════════════════════════════════════
-
-function _hl(text, q) {
-  if (!q || !text) return text || '';
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  try {
-    return text.replace(new RegExp('(' + escaped + ')', 'gi'),
-      '<mark style="background:rgba(79,70,229,.2);color:inherit;border-radius:2px;padding:0 1px">$1</mark>');
-  } catch(e) { return text; }
-}
-
-function renderFeed(data, highlightQ) {
-  document.getElementById('feedList').innerHTML = data.map((d, i) => `
-    <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title + ' ' + d.body + ' ' + d.body_name).toLowerCase()}" style="animation-delay:${i * 0.03}s">
-      <span class="fc-star ${starredIds.has(d.id) ? 'starred' : ''}" onclick="toggleItemStar(event,'${d.id}',this)" title="Add to watchlist">★</span>
-      <div class="fc-top">
-        <div class="fc-flag">${d.flag}</div>
-        <div class="fc-body">
-          <div style="display:flex;align-items:flex-start;gap:6px">
-              <div class="fc-title" style="flex:1">${_hl(d.title, highlightQ)}</div>
-              ${currentSort==='irp' && d.irp_score ? `<span title="IRP sensitivity score" style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;background:${d.irp_score>=70?'var(--red-lt)':d.irp_score>=50?'var(--amber-lt)':'var(--accent-lt)'};color:${d.irp_score>=70?'var(--red)':d.irp_score>=50?'var(--amber)':'var(--accent)'}">IRP ${d.irp_score}</span>` : ''}
-            </div>
-          <div class="fc-summary">${_hl(d.summary, highlightQ)}</div>
-        </div>
-      </div>
-      <div class="fc-footer">
-        <span class="tag tag-${d.tag}">${d.tag.toUpperCase()}</span>
-        ${d.irp ? '<span class="tag tag-irp">IRP-LINKED</span>' : ''}
-        <span class="fc-source">${d.body}</span>
-        <span class="fc-time">${d.time}</span>
-      </div>
-    </a>
-  `).join('');
-}
-
-
-function renderFeedAppend(data, highlightQ) {
-  const feedList = document.getElementById('feedList');
-  if (!feedList || !data.length) return;
-  const frag = document.createRange().createContextualFragment(
-    data.map((d, i) => `
-      <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title+' '+d.body).toLowerCase()}" style="animation-delay:${i*0.03}s">
-        <span class="fc-star ${starredIds.has(d.id) ? 'starred' : ''}" onclick="toggleItemStar(event,'${d.id}',this)" title="Add to watchlist">★</span>
-        <div class="fc-top">
-          <div class="fc-flag">${d.flag}</div>
-          <div class="fc-body">
-            <div style="display:flex;align-items:flex-start;gap:6px">
-              <div class="fc-title" style="flex:1">${_hl(d.title, highlightQ)}</div>
-            </div>
-            <div class="fc-summary">${_hl(d.summary, highlightQ)}</div>
-          </div>
-        </div>
-        <div class="fc-footer">
-          <span class="tag tag-${d.tag}">${d.tag.toUpperCase()}</span>
-          ${d.irp ? '<span class="tag tag-irp">IRP-LINKED</span>' : ''}
-          <span class="fc-source">${d.body}</span>
-          <span class="fc-time">${d.time}</span>
-        </div>
-      </a>
-    `).join('')
-  );
-  feedList.appendChild(frag);
-}
-
-function updateLoadMoreButton() {
-  const wrap = document.getElementById('loadMoreWrap');
-  const btn  = document.getElementById('loadMoreBtn');
-  if (!wrap || !btn) return;
-  const hasMore = feedOffset < feedTotal;
-  wrap.style.display = hasMore ? 'block' : 'none';
-  btn.textContent = feedLoading
-    ? 'Loading…'
-    : `Load more  (${(feedTotal - feedOffset).toLocaleString()} remaining)`;
-  btn.disabled = feedLoading;
-}
-
-function loadMore() {
-  if (feedLoading || feedOffset >= feedTotal) return;
-  feedLoading = true;
-  updateLoadMoreButton();
-  fetchAndRenderFeed(true).finally(() => {
-    feedLoading = false;
-    updateLoadMoreButton();
-  });
-}
-
-let activePillFilter = 'all';
-let feedOffset      = 0;       // current pagination offset
-let feedTotal       = 0;       // total items available from backend
-let feedLoading     = false;   // prevents concurrent fetches
-
-function setPill(type, el) {
-  activePillFilter = type;
-  document.querySelectorAll('.fpill').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  fetchAndRenderFeed();
-}
-
-function filterFeed() {
-  const q = document.getElementById('feedSearch')?.value || '';
-  const clearBtn = document.getElementById('searchClear');
-  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
-  if (!q) document.getElementById('searchCount').textContent = '';
-  clearTimeout(filterFeed._t);
-  filterFeed._t = setTimeout(() => {
-    fetchAndRenderFeed();
-    if (q.length >= 2) fetchSuggestions(q);
-    else hideSuggestions();
-  }, 300);
-}
-
-
-async function fetchSuggestions(q) {
-  try {
-    const r = await fetch(BACKEND_URL + '/feed?q=' + encodeURIComponent(q) + '&limit=8');
-    const data = await r.json();
-    const items = data.items || [];
-    if (!items.length || !document.getElementById('feedSearch')?.value) {
-      hideSuggestions(); return;
-    }
-    const box = document.getElementById('searchSuggestions');
-    if (!box) return;
-    // Extract unique drug names from titles
-    const seen = new Set();
-    const suggestions = items
-      .map(i => {
-        // Extract brand name (before parenthesis) and INN (inside parenthesis)
-        const brandMatch = i.title.match(/^([^(]+)/);
-        const innMatch   = i.title.match(/\(([^)]+)\)/);
-        return { brand: brandMatch?.[1]?.trim(), inn: innMatch?.[1]?.trim(), tag: i.tag, body: i.body };
-      })
-      .filter(s => s.brand && !seen.has(s.brand) && seen.add(s.brand));
-
-    box.innerHTML = suggestions.map(s => `
-      <div onclick="applySuggestion('${s.brand.replace(/'/g,"\\'")}'); hideSuggestions()"
-        style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--surface)"
-        onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='var(--surface)'">
-        <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:${s.tag==='approval'?'rgba(16,185,129,.15)':s.tag==='rejection'?'rgba(239,68,68,.15)':'var(--surface2)'};color:${s.tag==='approval'?'#10b981':s.tag==='rejection'?'#ef4444':'var(--text2)'}">
-          ${s.tag}</span>
-        <span style="font-weight:500;font-size:13px">${s.brand}</span>
-        ${s.inn ? `<span style="font-size:12px;color:var(--text3)">${s.inn}</span>` : ''}
-        <span style="margin-left:auto;font-size:11px;color:var(--text3)">${s.body}</span>
-      </div>`).join('');
-    // Position the fixed dropdown under the search input
-    const inp = document.getElementById('feedSearch');
-    if (inp) {
-      const rect = inp.getBoundingClientRect();
-      box.style.top = (rect.bottom + 4) + 'px';
-      box.style.left = rect.left + 'px';
-      box.style.width = rect.width + 'px';
-    }
-    box.style.display = 'block';
-    // Close on outside click
-    document.onclick = (e) => { if (!e.target.closest('#feedSearch, #searchSuggestions')) hideSuggestions(); };
-  } catch(e) { hideSuggestions(); }
-}
-
-function hideSuggestions() {
-  const box = document.getElementById('searchSuggestions');
-  if (box) box.style.display = 'none';
-}
-
-function applySuggestion(text) {
-  const inp = document.getElementById('feedSearch');
-  if (!inp) return;
-  inp.value = text;
-  document.getElementById('searchClear').style.display = 'block';
-  hideSuggestions();
-  fetchAndRenderFeed();
-}
-
-function clearSearch() {
-  const inp = document.getElementById('feedSearch');
-  if (inp) { inp.value = ''; inp.focus(); }
-  const clearBtn = document.getElementById('searchClear');
-  if (clearBtn) clearBtn.style.display = 'none';
-  document.getElementById('searchCount').textContent = '';
-  hideSuggestions();
-  fetchAndRenderFeed();
-}
-
-function applyFeedFilters() {
-  const q = document.getElementById('feedSearch').value.toLowerCase();
-  document.querySelectorAll('.feed-card').forEach(c => {
-    const matchTag = activePillFilter === 'all' ||
-      c.dataset.tag === activePillFilter ||
-      (activePillFilter === 'irp' && c.innerHTML.includes('IRP-LINKED'));
-    const matchQ = !q || c.dataset.text.includes(q);
-    c.style.display = matchTag && matchQ ? '' : 'none';
-  });
-}
-
-// ══════════════════════════════════════════
-// ANNOUNCEMENTS
-// ══════════════════════════════════════════
-async function renderAnn() {
-  if (!BACKEND_ENABLED) { renderAnnItems(annData); return; }
-  try {
-    // Fetch a wide pool to curate from — sort by IRP risk to surface highest-stakes items
-    const [byIrp, byDate] = await Promise.all([
-      fetch(BACKEND_URL + '/feed?limit=100&sort=irp').then(r => r.json()),
-      fetch(BACKEND_URL + '/feed?limit=100&sort=date').then(r => r.json()),
-    ]);
-
-    const irpItems  = byIrp.items  || [];
-    const dateItems = byDate.items || [];
-
-    // Curation logic — select ~8 high-impact items across 3 tiers:
-    //   TIER 1 (lead story): highest IRP score rejection (most commercially critical)
-    //   TIER 2 (major):      top 3 IRP-flagged approvals with IRP score ≥60
-    //   TIER 3 (watch list): recent decisions within 7 days, any tag
-
-    const now = Date.now();
-    const days7 = 7 * 24 * 3600 * 1000;
-    const days30 = 30 * 24 * 3600 * 1000;
-
-    // Tier 1: highest-stakes rejection
-    const tier1 = irpItems
-      .filter(i => i.tag === 'rejection')
-      .slice(0, 1);
-
-    // Tier 2: top IRP-sensitive approvals (score ≥50, not already in tier1)
-    const tier1Ids = new Set(tier1.map(i => i.id));
-    const tier2 = irpItems
-      .filter(i => i.tag === 'approval' && (i.irp_score || 0) >= 50 && !tier1Ids.has(i.id))
-      .slice(0, 3);
-
-    // Tier 3: most recent decisions (within 30 days, not already picked)
-    const pickedIds = new Set([...tier1, ...tier2].map(i => i.id));
-    const tier3 = dateItems
-      .filter(i => {
-        if (pickedIds.has(i.id)) return false;
-        if (!i.timestamp) return false;
-        const age = now - new Date(i.timestamp).getTime();
-        return age < days30;
-      })
-      .slice(0, 4);
-
-    const curated = [...tier1, ...tier2, ...tier3];
-
-    if (curated.length > 0) {
-      renderAnnItems(curated);
-      updateAnnStats(curated, irpItems);
-    } else {
-      renderAnnItems(annData);
-    }
-  } catch(e) {
-    renderAnnItems(annData);
-  }
-}
-
-function updateAnnStats(curated, allIrp) {
-  // Update the stat bar with live numbers
-  const highImpact = curated.filter(i => i.tag === 'rejection' || (i.irp_score || 0) >= 70).length;
-  const irpCount   = allIrp.filter(i => i.irp).length;
-  const approvals  = curated.filter(i => i.tag === 'approval').length;
-  const rejections = curated.filter(i => i.tag === 'rejection').length;
-
-  const h  = document.getElementById('ann-stat-high');
-  const ir = document.getElementById('ann-stat-irp');
-  const ap = document.getElementById('ann-stat-approvals');
-  const re = document.getElementById('ann-stat-rejections');
-  if (h)  h.textContent  = highImpact;
-  if (ir) ir.textContent = irpCount;
-  if (ap) ap.textContent = approvals;
-  if (re) re.textContent = rejections;
-}
-
-function flagForBody(body) {
-  const b = body.toLowerCase();
-  if (b.includes('nice') || b.includes('htw') || b.includes('smc')) return '🇬🇧';
-  if (b.includes('has')) return '🇫🇷';
-  if (b.includes('iqwig') || b.includes('g-ba')) return '🇩🇪';
-  if (b.includes('pbac') || b.includes('msac')) return '🇦🇺';
-  if (b.includes('cda') || b.includes('cadth')) return '🇨🇦';
-  if (b.includes('kce')) return '🇧🇪';
-  if (b.includes('sbu')) return '🇸🇪';
-  if (b.includes('hiqa')) return '🇮🇪';
-  if (b.includes('ema') || b.includes('euha') || b.includes('eunethta')) return '🇪🇺';
-  if (b.includes('neca')) return '🇰🇷';
-  if (b.includes('ace')) return '🇸🇬';
-  if (b.includes('pharmac')) return '🇳🇿';
-  return '🌐';
-}
-
-function renderAnnItems(items) {
-  // Detect if items come from backend (have .tag, .irp_score, .link)
-  // or from mock annData (have .impact, .flag, .body2)
-  const isLive = items.length > 0 && items[0].irp_score !== undefined;
-
-  if (!isLive) {
-    // Legacy mock rendering
-    document.getElementById('annGrid').innerHTML = items.map((d, i) => `
-      <div class="ann-card impact-${d.impact}" style="animation-delay:${i*0.05}s">
-        <div class="ann-header">
-          <div class="ann-flag">${d.flag}</div>
-          <div class="ann-meta">
-            <div class="ann-body-name">${d.body}</div>
-            <div class="ann-date">${d.date}</div>
-          </div>
-          <span class="impact-badge ib-${d.impact==='high'?'high':d.impact==='med'?'med':'low'}">${d.impact==='med'?'MEDIUM':d.impact.toUpperCase()}</span>
-        </div>
-        <div class="ann-title">${d.title}</div>
-        <div class="ann-body-txt">${d.body}</div>
-        <div class="ann-footer">
-          <span class="tag tag-guidance" style="font-size:9px">${d.tag.toUpperCase()}</span>
-          <span class="ann-read">Read full update →</span>
-        </div>
-      </div>`).join('');
-    return;
-  }
-
-  // ── Live editorial layout ─────────────────────────────────────────────
-  const [lead, ...rest] = items;
-  const major = rest.slice(0, 3);
-  const watch = rest.slice(3);
-
-  function irpChip(item) {
-    if (!item.irp) return '';
-    const score = item.irp_score || 0;
-    const col = score >= 70 ? '#ef4444' : score >= 50 ? '#d97706' : '#4f46e5';
-    return `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:${col}22;color:${col};border:1px solid ${col}44">🌐 IRP ${score}</span>`;
-  }
-
-  function tagChip(tag) {
-    const cfg = {
-      approval:    ['#10b981','Approval'],
-      rejection:   ['#ef4444','Rejection'],
-      consultation:['#f59e0b','Consultation'],
-      guidance:    ['#6366f1','Guidance'],
-    };
-    const [col, label] = cfg[tag] || ['#6366f1','Update'];
-    return `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:${col}22;color:${col};text-transform:uppercase;letter-spacing:.5px">${label}</span>`;
-  }
-
-  // Lead story — full width, high visual weight
-  const leadHtml = lead ? `
-    <a href="${lead.link||'#'}" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit;
-      grid-column:1/-1;padding:20px 24px;border-radius:10px;
-      background:${lead.tag==='rejection'?'linear-gradient(135deg,#fef2f2,#fff)':'linear-gradient(135deg,#eef2ff,#fff)'};
-      border:2px solid ${lead.tag==='rejection'?'#fca5a5':'#a5b4fc'};
-      transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 20px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow=''">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3)">LEAD STORY</span>
-        <span style="flex:1;height:1px;background:var(--border)"></span>
-        ${tagChip(lead.tag)} ${irpChip(lead)}
-        <span style="font-size:11px;color:var(--text3)">${lead.time}</span>
-      </div>
-      <div style="font-size:16px;font-weight:700;line-height:1.4;color:var(--text);margin-bottom:6px">${lead.title}</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${lead.summary}</div>
-      <div style="margin-top:10px;font-size:11px;font-weight:600;color:var(--accent)">
-        ${lead.body} · Read full assessment →
-      </div>
-    </a>` : '';
-
-  // Major cards — 2-col grid
-  const majorHtml = major.map(item => `
-    <a href="${item.link||'#'}" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit;
-      padding:16px;border-radius:8px;background:var(--surface);border:1px solid var(--border);
-      transition:box-shadow .15s,border-color .15s" onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,.08)';this.style.borderColor='var(--accent-md)'" onmouseout="this.style.boxShadow='';this.style.borderColor='var(--border)'">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        ${tagChip(item.tag)} ${irpChip(item)}
-        <span style="margin-left:auto;font-size:10px;color:var(--text3)">${item.time}</span>
-      </div>
-      <div style="font-size:13px;font-weight:600;line-height:1.4;color:var(--text);margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${item.title}</div>
-      <div style="font-size:11px;color:var(--text3);font-weight:500">${item.body}</div>
-    </a>`).join('');
-
-  // Watch list — compact rows
-  const watchHtml = watch.length ? `
-    <div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
-      <div style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text3);margin-bottom:8px">ALSO WATCH</div>
-      ${watch.map(item => `
-        <a href="${item.link||'#'}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);text-decoration:none;color:inherit"
-          onmouseover="this.style.background=''" onmouseout="this.style.background=''">
-          ${tagChip(item.tag)}
-          <span style="font-size:12px;color:var(--text);flex:1;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden">${item.title}</span>
-          ${irpChip(item)}
-          <span style="font-size:10px;color:var(--text3);white-space:nowrap">${item.body}</span>
-          <span style="font-size:10px;color:var(--text3);white-space:nowrap">${item.time}</span>
-        </a>`).join('')}
-    </div>` : '';
-
-  document.getElementById('annGrid').innerHTML = leadHtml + majorHtml + watchHtml;
-
-  // Make annGrid a proper grid
-  const grid = document.getElementById('annGrid');
-  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px';
-}
-
-// ══════════════════════════════════════════
-// IRP NETWORK
-// ══════════════════════════════════════════
+// ── State ──────────────────────────────────────────────────────────────────
 let irpView = 'network';
-let animFrame;
-let hoveredNode = null;
+let irpSelectedCountries = new Set(irpNodes.map(n => n.id)); // all selected by default
+let irpCompareSelection  = [];  // up to 4 for compare view
+let irpHoverNode         = null;
+let irpCardNode          = null; // currently open card popup
 
 const nodeMap = {};
 irpNodes.forEach(n => nodeMap[n.id] = n);
 
+// ── View switcher ──────────────────────────────────────────────────────────
 function setIrpView(view, el) {
   irpView = view;
   document.querySelectorAll('.irp-view-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
-  const canvas = document.getElementById('irpCanvas');
-  const matrix = document.getElementById('irpMatrix');
-  if (view === 'network') {
-    canvas.style.display = 'block';
-    matrix.style.display = 'none';
-    drawIRP();
-  } else {
-    canvas.style.display = 'none';
-    matrix.style.display = 'block';
-    renderMatrix();
-  }
+  const canvas  = document.getElementById('irpCanvas');
+  const matrix  = document.getElementById('irpMatrix');
+  const compare = document.getElementById('irpCompare');
+  canvas.style.display  = view === 'network' ? 'block' : 'none';
+  matrix.style.display  = view === 'matrix'  ? 'block' : 'none';
+  compare.style.display = view === 'compare' ? 'block' : 'none';
+  if (view === 'network') drawIRP();
+  if (view === 'matrix')  renderMatrix();
+  if (view === 'compare') renderCompare();
 }
 
-function initIRP() {
-  const canvas = document.getElementById('irpCanvas');
-  const wrap = canvas.parentElement;
-  canvas.width = wrap.clientWidth;
-  canvas.height = wrap.clientHeight;
-  drawIRP();
-  canvas.addEventListener('mousemove', onIRPHover);
-  canvas.addEventListener('mouseleave', () => {
-    hoveredNode = null;
-    document.getElementById('irpTooltip').style.display = 'none';
-    drawIRP();
+// ── Country selector ───────────────────────────────────────────────────────
+function toggleIrpSelector() {
+  const wrap = document.getElementById('irpSelectorWrap');
+  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+}
+
+function buildIrpSelector() {
+  const wrap = document.getElementById('irpSelectorList');
+  if (!wrap) return;
+  const tiers = [
+    {label:'Anchors', ids:['DE','UK','FR']},
+    {label:'Major reference', ids:['SE','BE','NL','IT','ES']},
+    {label:'Selective reference', ids:['AT','CH','PL','CZ','HU','SK','GR','PT','RO','BG']},
+    {label:'Other regions', ids:['JP','US','AU','CA','KR','SG','IL']},
+  ];
+  let html = '';
+  tiers.forEach(tier => {
+    html += `<div class="irp-sel-group"><div class="irp-sel-label">${tier.label}</div><div class="irp-sel-chips">`;
+    tier.ids.forEach(id => {
+      const n = nodeMap[id];
+      const checked = irpSelectedCountries.has(id);
+      html += `<label class="irp-sel-chip ${checked ? 'on' : ''}">
+        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleIrpCountry('${id}',this)">
+        ${n.flag} ${n.label}
+      </label>`;
+    });
+    html += '</div></div>';
   });
+  html += `<div style="margin-top:8px;display:flex;gap:8px">
+    <button class="irp-sel-all" onclick="setAllIrpCountries(true)">Select all</button>
+    <button class="irp-sel-all" onclick="setAllIrpCountries(false)">Clear all</button>
+  </div>`;
+  wrap.innerHTML = html;
 }
 
-function getNodePx(n, W, H) {
-  return { x: n.x * W, y: n.y * H };
+function toggleIrpCountry(id, cb) {
+  const label = cb.closest('label');
+  if (cb.checked) { irpSelectedCountries.add(id); label.classList.add('on'); }
+  else            { irpSelectedCountries.delete(id); label.classList.remove('on'); }
+  if (irpView === 'network') drawIRP();
+  if (irpView === 'matrix')  renderMatrix();
+  if (irpView === 'compare') renderCompare();
 }
 
-function getNodeRadius(n) {
-  return 10 + n.score * 1.8;
+function setAllIrpCountries(all) {
+  irpSelectedCountries = all ? new Set(irpNodes.map(n => n.id)) : new Set();
+  buildIrpSelector();
+  if (irpView === 'network') drawIRP();
+  if (irpView === 'matrix')  renderMatrix();
 }
 
+// ── Country card popup ─────────────────────────────────────────────────────
+function openIrpCard(id) {
+  const n = nodeMap[id];
+  if (!n) return;
+  irpCardNode = id;
+  // Find references FROM this country
+  const refs_out = irpEdges.filter(([f]) => f === id).map(([,t]) => nodeMap[t]).filter(Boolean);
+  // Find who references this country
+  const refs_in  = irpEdges.filter(([,t]) => t === id).map(([f]) => nodeMap[f]).filter(Boolean);
+
+  const card = document.getElementById('irpCardPopup');
+  document.getElementById('irpCardFlag').textContent   = n.flag;
+  document.getElementById('irpCardName').textContent   = n.label;
+  document.getElementById('irpCardBody').textContent   = `HTA Body: ${n.body}`;
+  document.getElementById('irpCardPolicy').textContent = n.policy;
+  document.getElementById('irpCardScore').textContent  = `Referenced by ${n.score} countries`;
+  document.getElementById('irpCardRefsOut').innerHTML  =
+    refs_out.length ? refs_out.map(r => `<span class="irp-ref-chip">${r.flag} ${r.label}</span>`).join('') : '<em>—</em>';
+  document.getElementById('irpCardRefsIn').innerHTML   =
+    refs_in.length  ? refs_in.map(r => `<span class="irp-ref-chip">${r.flag} ${r.label}</span>`).join('') : '<em>—</em>';
+
+  // Button to add to compare
+  const inCompare = irpCompareSelection.includes(id);
+  document.getElementById('irpCardCompareBtn').textContent = inCompare ? '✓ In comparison' : '+ Add to compare';
+  document.getElementById('irpCardCompareBtn').onclick = () => {
+    if (!irpCompareSelection.includes(id)) {
+      if (irpCompareSelection.length >= 4) {
+        irpCompareSelection.shift(); // drop oldest
+      }
+      irpCompareSelection.push(id);
+    }
+    closeIrpCard();
+    const compareBtn = document.querySelector('.irp-view-btn[onclick*="compare"]');
+    if (compareBtn) setIrpView('compare', compareBtn);
+  };
+
+  card.style.display = 'flex';
+}
+
+function closeIrpCard() {
+  document.getElementById('irpCardPopup').style.display = 'none';
+  irpCardNode = null;
+}
+
+// ── Network view ───────────────────────────────────────────────────────────
 function drawIRP() {
   const canvas = document.getElementById('irpCanvas');
   if (!canvas) return;
   const wrap = canvas.parentElement;
-  if (wrap.clientWidth !== canvas.width) {
-    canvas.width = wrap.clientWidth;
-    canvas.height = wrap.clientHeight;
-  }
+  canvas.width  = wrap.clientWidth  || 800;
+  canvas.height = wrap.clientHeight || 500;
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, W, H);
 
-  // subtle grid
-  ctx.strokeStyle = 'rgba(0,0,0,0.03)';
+  const visibleNodes = irpNodes.filter(n => irpSelectedCountries.has(n.id));
+  const visibleIds   = new Set(visibleNodes.map(n => n.id));
+  const visibleEdges = irpEdges.filter(([f,t]) => visibleIds.has(f) && visibleIds.has(t));
+
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(0,0,0,0.025)';
   ctx.lineWidth = 1;
-  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  for (let x = 0; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
 
   // Draw edges
-  irpEdges.forEach(([fromId, toId]) => {
-    const fn = nodeMap[fromId], tn = nodeMap[toId];
-    if (!fn || !tn) return;
-    const fp = getNodePx(fn, W, H), tp = getNodePx(tn, W, H);
-    const fr = getNodeRadius(fn), tr = getNodeRadius(tn);
-    const dx = tp.x - fp.x, dy = tp.y - fp.y;
-    const len = Math.sqrt(dx*dx + dy*dy);
-    if (len === 0) return;
+  visibleEdges.forEach(([from, to]) => {
+    const f = nodeMap[from], t = nodeMap[to];
+    if (!f || !t) return;
+    const fx = f.x * W, fy = f.y * H, tx = t.x * W, ty = t.y * H;
+    const dx = tx - fx, dy = ty - fy, len = Math.sqrt(dx*dx+dy*dy);
+    if (len < 1) return;
     const ux = dx/len, uy = dy/len;
-    const sx = fp.x + ux*fr, sy = fp.y + uy*fr;
-    const ex = tp.x - ux*(tr+6), ey = tp.y - uy*(tr+6);
+    const toR = 10 + (t.score || 0) * 1.5;
+    const ex = tx - ux * toR, ey = ty - uy * toR;
 
-    const isHovered = hoveredNode && (hoveredNode.id === fromId || hoveredNode.id === toId);
-    ctx.beginPath();
-    ctx.strokeStyle = isHovered ? (hoveredNode.id === fromId ? '#4f46e5' : '#dc2626') + 'cc' : 'rgba(180,174,166,0.3)';
-    ctx.lineWidth = isHovered ? 1.5 : 0.8;
-    ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.strokeStyle = 'rgba(148,163,184,0.25)';
+    ctx.lineWidth   = 0.8;
+    ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(ex, ey); ctx.stroke();
 
-    // arrowhead
-    const angle = Math.atan2(ey - sy, ex - sx);
+    // Arrowhead
+    const angle = Math.atan2(ey-fy, ex-fx);
+    ctx.fillStyle = 'rgba(148,163,184,0.4)';
     ctx.beginPath();
-    ctx.fillStyle = isHovered ? (hoveredNode.id === fromId ? '#4f46e5' : '#dc2626') + 'cc' : 'rgba(168,162,158,0.5)';
     ctx.moveTo(ex, ey);
-    ctx.lineTo(ex - 7*Math.cos(angle-0.4), ey - 7*Math.sin(angle-0.4));
-    ctx.lineTo(ex - 7*Math.cos(angle+0.4), ey - 7*Math.sin(angle+0.4));
+    ctx.lineTo(ex - 7*Math.cos(angle-0.35), ey - 7*Math.sin(angle-0.35));
+    ctx.lineTo(ex - 7*Math.cos(angle+0.35), ey - 7*Math.sin(angle+0.35));
     ctx.closePath(); ctx.fill();
   });
 
   // Draw nodes
-  irpNodes.forEach(n => {
-    const p = getNodePx(n, W, H);
-    const r = getNodeRadius(n);
-    const isHov = hoveredNode && hoveredNode.id === n.id;
+  visibleNodes.forEach(n => {
+    const cx = n.x * W, cy = n.y * H;
+    const r  = 10 + (n.score || 0) * 1.5;
+    const isHover = irpHoverNode === n.id;
 
-    // glow ring
-    if (isHov) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r + 6, 0, Math.PI*2);
-      ctx.fillStyle = n.color + '20';
-      ctx.fill();
+    // Glow on hover
+    if (isHover) {
+      ctx.shadowColor = n.color; ctx.shadowBlur = 18;
     }
 
-    // outer glow
-    const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r*2);
-    grd.addColorStop(0, n.color + '30');
-    grd.addColorStop(1, n.color + '00');
-    ctx.beginPath(); ctx.arc(p.x, p.y, r*2, 0, Math.PI*2);
-    ctx.fillStyle = grd; ctx.fill();
-
-    // fill
-    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2);
-    ctx.fillStyle = n.color + (isHov ? 'ee' : '22');
+    // Circle
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.fillStyle = n.color + (isHover ? 'ff' : 'cc');
     ctx.fill();
-    ctx.strokeStyle = n.color + (isHov ? 'ff' : 'cc');
-    ctx.lineWidth = isHov ? 2 : 1.5;
+    ctx.strokeStyle = isHover ? '#ffffff' : 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = isHover ? 2 : 1;
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
-    // label
-    const fontSize = Math.max(9, Math.min(12, r * 0.72));
-    ctx.fillStyle = isHov ? n.color : '#1c1917';
-    ctx.font = `500 ${fontSize}px 'Instrument Sans', sans-serif`;
-    ctx.textAlign = 'center';
+    // Label
+    ctx.fillStyle   = '#ffffff';
+    ctx.font        = `bold ${r > 16 ? 11 : 9}px var(--font-mono)`;
+    ctx.textAlign   = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(n.id, p.x, p.y);
-  });
-}
+    ctx.fillText(n.id, cx, cy);
 
-function onIRPHover(e) {
-  const canvas = document.getElementById('irpCanvas');
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const W = canvas.width, H = canvas.height;
-  const tt = document.getElementById('irpTooltip');
-
-  let found = null;
-  irpNodes.forEach(n => {
-    const p = getNodePx(n, W, H);
-    const r = getNodeRadius(n);
-    const dist = Math.sqrt((mx-p.x)**2 + (my-p.y)**2);
-    if (dist <= r + 4) found = n;
+    // Country name below
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = `${Math.max(8, r*0.6)}px var(--font-sans)`;
+    ctx.fillText(n.label, cx, cy + r + 10);
   });
 
-  if (found !== hoveredNode) {
-    hoveredNode = found;
-    drawIRP();
-  }
+  // Hover & click handler (attach once)
+  if (!canvas._irpHandlers) {
+    canvas._irpHandlers = true;
 
-  if (found) {
-    const referencedBy = irpEdges.filter(([f]) => f === found.id).map(([,t]) => t);
-    const references   = irpEdges.filter(([,t]) => t === found.id).map(([f]) => f);
-    tt.innerHTML = `
-      <div class="irp-tt-name">${found.label} (${found.id})</div>
-      <div class="irp-tt-row">Referenced by: <span>${references.length} nations</span></div>
-      <div class="irp-tt-row">References: <span>${referencedBy.join(', ') || 'none'}</span></div>
-      <div class="irp-tt-row">Influence score: <span>${found.score}/11</span></div>
-    `;
-    const ttX = Math.min(e.clientX - rect.left + 12, W - 230);
-    const ttY = Math.min(e.clientY - rect.top + 12, H - 120);
-    tt.style.left = ttX + 'px';
-    tt.style.top  = ttY + 'px';
-    tt.style.display = 'block';
-  } else {
-    tt.style.display = 'none';
+    const getNode = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
+      return visibleNodes.find(n => {
+        const dx = n.x*canvas.width - mx, dy = n.y*canvas.height - my;
+        const r = 10 + (n.score||0)*1.5 + 4;
+        return dx*dx + dy*dy < r*r;
+      }) || null;
+    };
+
+    canvas.onmousemove = (e) => {
+      const n = getNode(e);
+      const newHover = n ? n.id : null;
+      if (newHover !== irpHoverNode) {
+        irpHoverNode = newHover;
+        canvas.style.cursor = newHover ? 'pointer' : 'default';
+        drawIRP();
+      }
+    };
+    canvas.onclick = (e) => {
+      const n = getNode(e);
+      if (n) openIrpCard(n.id);
+    };
+    canvas.onmouseleave = () => { irpHoverNode = null; drawIRP(); };
   }
 }
 
+// ── Matrix view ────────────────────────────────────────────────────────────
 function renderMatrix() {
-  const countries = ['DE','UK','FR','SE','BE','NL','IT','ES','AU','CA','AT','CH','JP'];
-  const fullNames = {DE:'Germany',UK:'UK',FR:'France',SE:'Sweden',BE:'Belgium',NL:'Netherlands',IT:'Italy',ES:'Spain',AU:'Australia',CA:'Canada',AT:'Austria',CH:'Switzerland',JP:'Japan'};
-  const referencers = ['AT','CH','PL','CZ','HU','SK','GR','PT','RO','BG','KR','SG','IL'];
-  const refNames = {AT:'Austria',CH:'Switzerland',PL:'Poland',CZ:'Czech Rep.',HU:'Hungary',SK:'Slovakia',GR:'Greece',PT:'Portugal',RO:'Romania',BG:'Bulgaria',KR:'S. Korea',SG:'Singapore',IL:'Israel'};
+  const allIds  = irpNodes.map(n => n.id).filter(id => irpSelectedCountries.has(id));
+  // Columns = nodes that receive references (referenced countries)
+  const refCols = allIds.filter(id => irpEdges.some(([,t]) => t === id));
+  // Rows = nodes that make references (referencing countries)
+  const refRows = allIds.filter(id => irpEdges.some(([f]) => f === id));
 
-  const matrix = {};
-  referencers.forEach(r => {
-    matrix[r] = {};
-    countries.forEach(c => { matrix[r][c] = 0; });
-    irpEdges.filter(([f]) => f === r).forEach(([,t]) => { if (matrix[r][t] !== undefined) matrix[r][t] = 1; });
-  });
+  if (!refRows.length || !refCols.length) {
+    document.getElementById('irpMatrix').innerHTML = '<p style="padding:20px;color:var(--text3)">Select at least 2 countries to see the matrix.</p>';
+    return;
+  }
 
-  const colTotals = countries.map(c => referencers.reduce((s, r) => s + (matrix[r][c] || 0), 0));
-  const maxTotal  = Math.max(...colTotals);
+  const colTotals = refCols.map(c => refRows.reduce((s, r) => s + (irpEdges.some(([f,t]) => f===r && t===c) ? 1 : 0), 0));
+  const maxTotal  = Math.max(...colTotals, 1);
 
   let html = '<table class="matrix-table"><thead><tr><th class="row-head">References →</th>';
-  countries.forEach(c => {
-    html += `<th title="${fullNames[c]}" style="writing-mode:vertical-rl;transform:rotate(180deg);padding:4px 3px;font-size:10px;">${c}</th>`;
+  refCols.forEach((c,i) => {
+    const n = nodeMap[c];
+    html += `<th title="${n.label}" style="writing-mode:vertical-rl;transform:rotate(180deg);padding:4px 2px;font-size:10px;cursor:pointer" onclick="openIrpCard('${c}')">${n.flag}${c}</th>`;
   });
   html += '</tr></thead><tbody>';
 
-  referencers.forEach(r => {
-    html += `<tr><td class="label-cell" title="${refNames[r]}">${r}</td>`;
-    countries.forEach((c, i) => {
-      const val = matrix[r][c];
-      const intensity = val ? 0.12 + 0.7 * (colTotals[i] / maxTotal) : 0;
-      const bg = val ? `rgba(79,70,229,${intensity.toFixed(2)})` : 'transparent';
-      html += `<td style="background:${bg}" title="${refNames[r]} references ${fullNames[c]}">${val ? '●' : ''}</td>`;
+  refRows.forEach(rowId => {
+    const rn = nodeMap[rowId];
+    html += `<tr><td class="label-cell" title="${rn.label}" onclick="openIrpCard('${rowId}')" style="cursor:pointer">${rn.flag} ${rowId}</td>`;
+    refCols.forEach((c, i) => {
+      const linked = irpEdges.some(([f,t]) => f===rowId && t===c);
+      const intensity = linked ? 0.15 + 0.7 * (colTotals[i] / maxTotal) : 0;
+      const bg = linked ? `rgba(79,70,229,${intensity.toFixed(2)})` : 'transparent';
+      const title = linked ? `${rn.label} references ${nodeMap[c].label}` : '';
+      html += `<td style="background:${bg}" title="${title}">${linked ? '●' : ''}</td>`;
     });
     html += '</tr>';
   });
 
   html += '</tbody><tfoot><tr><td class="label-cell" style="font-size:10px;color:#a8a29e">Total refs</td>';
   colTotals.forEach(t => {
-    html += `<td style="font-size:10px;font-family:var(--font-mono);color:#4f46e5;border-top:2px solid #e8e4de;">${t}</td>`;
+    html += `<td style="font-size:10px;font-family:var(--font-mono);color:#4f46e5;border-top:2px solid var(--border)">${t}</td>`;
   });
   html += '</tr></tfoot></table>';
 
   document.getElementById('irpMatrix').innerHTML = html;
 }
+
+// ── Compare view (up to 4 countries) ──────────────────────────────────────
+function renderCompare() {
+  const wrap = document.getElementById('irpCompare');
+  if (!wrap) return;
+
+  // Country picker
+  let pickerHtml = '<div class="irp-compare-picker">';
+  pickerHtml += '<div class="irp-compare-picker-label">Select up to 4 countries to compare:</div>';
+  pickerHtml += '<div class="irp-compare-chips">';
+  irpNodes.forEach(n => {
+    const sel = irpCompareSelection.includes(n.id);
+    pickerHtml += `<span class="irp-compare-chip ${sel ? 'sel' : ''}"
+      onclick="toggleIrpCompare('${n.id}')" title="${n.label}">
+      ${n.flag} ${n.id}
+    </span>`;
+  });
+  pickerHtml += '</div></div>';
+
+  if (irpCompareSelection.length === 0) {
+    wrap.innerHTML = pickerHtml + '<p style="padding:20px;color:var(--text3)">Select 2–4 countries above to compare.</p>';
+    return;
+  }
+
+  // Build comparison cards
+  let cardsHtml = '<div class="irp-compare-grid">';
+  irpCompareSelection.forEach(id => {
+    const n = nodeMap[id];
+    if (!n) return;
+
+    const refs_out = irpEdges.filter(([f]) => f === id).map(([,t]) => nodeMap[t]).filter(Boolean);
+    const refs_in  = irpEdges.filter(([,t]) => t === id).map(([f]) => nodeMap[f]).filter(Boolean);
+    const tierLabel = ['Anchor', 'Major reference', 'Selective reference', 'Other region'][n.tier] || '';
+    const tierColor = ['#4f46e5','#7c3aed','#059669','#d97706'][n.tier] || '#a8a29e';
+
+    cardsHtml += `
+    <div class="irp-compare-card">
+      <div class="irp-compare-card-header" style="border-top:3px solid ${n.color}">
+        <div class="irp-compare-card-flag">${n.flag}</div>
+        <div>
+          <div class="irp-compare-card-name">${n.label}</div>
+          <div class="irp-compare-card-tier" style="color:${tierColor}">${tierLabel}</div>
+        </div>
+        <button class="irp-compare-remove" onclick="removeIrpCompare('${id}')" title="Remove">✕</button>
+      </div>
+      <div class="irp-compare-card-body">
+        <div class="irp-compare-row">
+          <span class="irp-compare-key">HTA body</span>
+          <span class="irp-compare-val">${n.body}</span>
+        </div>
+        <div class="irp-compare-row">
+          <span class="irp-compare-key">Referenced by</span>
+          <span class="irp-compare-val" style="color:${n.color};font-weight:600">${n.score} countries</span>
+        </div>
+        <div class="irp-compare-row">
+          <span class="irp-compare-key">References</span>
+          <span class="irp-compare-val">${refs_out.map(r => r.flag + r.id).join(' ') || '—'}</span>
+        </div>
+        <div class="irp-compare-row">
+          <span class="irp-compare-key">Referenced by</span>
+          <span class="irp-compare-val">${refs_in.slice(0,6).map(r => r.flag + r.id).join(' ') || '—'}${refs_in.length > 6 ? ' +' + (refs_in.length-6) : ''}</span>
+        </div>
+        <div class="irp-compare-policy">${n.policy}</div>
+      </div>
+    </div>`;
+  });
+  cardsHtml += '</div>';
+
+  wrap.innerHTML = pickerHtml + cardsHtml;
+}
+
+function toggleIrpCompare(id) {
+  const idx = irpCompareSelection.indexOf(id);
+  if (idx >= 0) {
+    irpCompareSelection.splice(idx, 1);
+  } else {
+    if (irpCompareSelection.length >= 4) return; // max 4
+    irpCompareSelection.push(id);
+  }
+  renderCompare();
+}
+
+function removeIrpCompare(id) {
+  irpCompareSelection = irpCompareSelection.filter(x => x !== id);
+  renderCompare();
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+function initIRP() {
+  buildIrpSelector();
+  drawIRP();
+}
+
+window.addEventListener('resize', () => { if (irpView === 'network') drawIRP(); });
 
 // ══════════════════════════════════════════
 // USA HUB — LIVE DATA (openFDA API + RSS)
