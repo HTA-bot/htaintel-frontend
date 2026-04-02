@@ -2686,7 +2686,11 @@ function setGroup(g, el) {
     shouldCheck ? check.classList.add('checked') : check.classList.remove('checked');
   });
 
-  fetchAndRenderFeed();
+  if (g === 'watchlist') {
+    applyWatchlistFilter();
+  } else {
+    fetchAndRenderFeed();
+  }
 }
 
 let currentGroupFilter = 'all';
