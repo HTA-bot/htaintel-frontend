@@ -2189,6 +2189,20 @@ body {
         </div>
 
         <div class="feed-list" id="feedList"></div>
+
+      <!-- Load More button — shown when feedOffset < feedTotal -->
+      <div id="loadMoreWrap" style="text-align:center;padding:20px 0 4px;display:none">
+        <button id="loadMoreBtn"
+          onclick="loadMore()"
+          style="padding:9px 28px;border-radius:8px;border:1px solid var(--border2);
+                 background:var(--surface);color:var(--text2);font-size:13px;font-weight:500;
+                 cursor:pointer;transition:background 0.15s,border-color 0.15s"
+          onmouseover="this.style.background='var(--surface2)';this.style.borderColor='var(--accent)'"
+          onmouseout="this.style.background='var(--surface)';this.style.borderColor='var(--border2)'">
+          Load more
+        </button>
+      </div>
+
       </section>
 
       <!-- ════ PANEL 2: ANNOUNCEMENTS ════ -->
@@ -2896,11 +2910,15 @@ function renderFeedAppend(data, highlightQ) {
 }
 
 function updateLoadMoreButton() {
-  const btn = document.getElementById('loadMoreBtn');
-  if (!btn) return;
+  const wrap = document.getElementById('loadMoreWrap');
+  const btn  = document.getElementById('loadMoreBtn');
+  if (!wrap || !btn) return;
   const hasMore = feedOffset < feedTotal;
-  btn.style.display = hasMore ? 'block' : 'none';
-  btn.textContent = feedLoading ? 'Loading…' : `Load more  (${feedTotal - feedOffset} remaining)`;
+  wrap.style.display = hasMore ? 'block' : 'none';
+  btn.textContent = feedLoading
+    ? 'Loading…'
+    : `Load more  (${(feedTotal - feedOffset).toLocaleString()} remaining)`;
+  btn.disabled = feedLoading;
 }
 
 function loadMore() {
