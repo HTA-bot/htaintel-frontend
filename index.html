@@ -4737,6 +4737,7 @@ function enterApp() {
 
   applyProfile();
   renderProfileList();
+  buildSidebarBodyList();
 }
 
 
@@ -5386,7 +5387,6 @@ if (BACKEND_ENABLED) {
     showToast('Live feed loaded');
     updateGroupCounts();
   }).catch(() => {});
-  buildSidebarBodyList();
 
   // Live stat bar
   fetch(BACKEND_URL + '/stats')
