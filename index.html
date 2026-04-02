@@ -4,6 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HTA Intel — Global HTA Intelligence Platform</title>
+<meta name="description" content="Real-time global HTA intelligence: EMA, FDA, NICE, SMC, G-BA, PBAC, ZIN, NCPE and 20+ more bodies. IRP-flagged drug decisions, reimbursement advice, and safety signals in one feed.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://htaintel-frontend.vercel.app/">
+
+<!-- Open Graph -->
+<meta property="og:type"        content="website">
+<meta property="og:url"         content="https://htaintel-frontend.vercel.app/">
+<meta property="og:title"       content="HTA Intel — Global HTA Intelligence Platform">
+<meta property="og:description" content="Real-time HTA intelligence across 20+ global bodies. EMA, FDA, NICE, SMC, G-BA, PBAC, ZIN and more — IRP-flagged, one feed.">
+<meta property="og:image"       content="https://htaintel-frontend.vercel.app/og-image.png">
+<meta property="og:site_name"   content="HTA Intel">
+
+<!-- Twitter / X -->
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:title"       content="HTA Intel — Global HTA Intelligence Platform">
+<meta name="twitter:description" content="Real-time HTA intelligence across 20+ global bodies. IRP-flagged drug decisions in one feed.">
+<meta name="twitter:image"       content="https://htaintel-frontend.vercel.app/og-image.png">
+
+<!-- Favicon (inline SVG data URI — no separate file needed) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-family='sans-serif' font-weight='700' font-size='18' fill='white'>H</text></svg>">
+<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgo=">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -2708,9 +2729,9 @@ async function fetchAndRenderFeed() {
   const region = GROUP_REGIONS[currentGroupFilter];
   const tag    = activePillFilter === 'all' ? null : activePillFilter;
 
-  let url = BACKEND_URL + '/feed?limit=80&sort=' + currentSort;
+  let url = BACKEND_URL + '/feed?limit=200&sort=' + currentSort;
   if (region && currentGroupFilter !== 'irp') url += '&region=' + region;
-  if (currentGroupFilter === 'irp')           url += '&tag=irp';
+  if (currentGroupFilter === 'irp')           url += '&irp=true';
   if (tag && tag !== 'irp')                   url += '&tag=' + tag;
   if (q)                                      url += '&q=' + encodeURIComponent(q);
 
@@ -4744,6 +4765,18 @@ if (appState.activeUserId && activeUser()) {
   // Show auth screen
   document.getElementById('authScreen').classList.remove('hidden');
 }
+
+  // ── Keep-alive ping (Render free tier sleeps after 15min inactivity) ──
+  function pingBackend() {
+    if (typeof BACKEND_URL !== 'undefined') {
+      fetch(BACKEND_URL + '/health', { method: 'GET', cache: 'no-store' })
+        .catch(() => {}); // silent — just keeping the dyno warm
+    }
+  }
+  // Ping every 10 minutes
+  setInterval(pingBackend, 10 * 60 * 1000);
+  pingBackend(); // immediate ping on load
+
 </script>
 </body>
 </html>P
