@@ -1921,6 +1921,12 @@ body {
           Watchlist
           <span class="sb-count" id="grp-count-watchlist">0</span>
         </button>
+        <div id="watchlistClearRow" style="display:none;padding:2px 8px 6px 36px">
+          <span onclick="clearWatchlist()"
+            style="font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-underline-offset:2px"
+            onmouseover="this.style.color='var(--red)'"
+            onmouseout="this.style.color='var(--text3)'">Clear all</span>
+        </div>
       </div>
 
       <div class="sb-divider"></div>
@@ -2876,6 +2882,17 @@ function saveStarred() {
   updateWatchlistCount();
 }
 
+function clearWatchlist() {
+  if (starredIds.size === 0) return;
+  if (!confirm(`Remove all ${starredIds.size} item${starredIds.size===1?'':'s'} from your watchlist?`)) return;
+  starredIds.clear();
+  saveStarred();
+  // Un-star all visible cards
+  document.querySelectorAll('.fc-star.starred').forEach(el => el.classList.remove('starred'));
+  // If viewing watchlist, show empty state
+  if (currentGroupFilter === 'watchlist') applyWatchlistFilter();
+}
+
 // Toggle a feed item's starred state
 function toggleItemStar(e, itemId, el) {
   e.preventDefault();
@@ -2896,8 +2913,10 @@ function toggleItemStar(e, itemId, el) {
 
 // Update the watchlist count badge
 function updateWatchlistCount() {
-  const badge = document.getElementById('grp-count-watchlist');
-  if (badge) badge.textContent = starredIds.size || '0';
+  const badge   = document.getElementById('grp-count-watchlist');
+  const clearRow = document.getElementById('watchlistClearRow');
+  if (badge)    badge.textContent = starredIds.size || '0';
+  if (clearRow) clearRow.style.display = starredIds.size > 0 ? 'block' : 'none';
 }
 
 // Apply watchlist filter to current feed cards
