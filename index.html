@@ -2139,9 +2139,9 @@ body {
           <div class="irp-compare-wrap" id="irpCompare" style="display:none"></div>
 
           <!-- Country card popup -->
-          <div id="irpCardPopup" style="display:none;position:absolute;top:50%;left:50%;
+          <div id="irpCardPopup" style="display:none;position:fixed;top:50%;left:50%;
                transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);
-               border-radius:12px;padding:20px;width:340px;max-width:90vw;z-index:50;
+               border-radius:12px;padding:20px;width:340px;max-width:90vw;z-index:9000;
                box-shadow:0 8px 32px rgba(0,0,0,0.4);flex-direction:column;gap:10px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
               <span id="irpCardFlag" style="font-size:28px"></span>
@@ -2742,36 +2742,33 @@ function drawIRP() {
     ctx.fillText(n.label, cx, cy + r + 10);
   });
 
-  // Hover & click handler (attach once)
-  if (!canvas._irpHandlers) {
-    canvas._irpHandlers = true;
-
-    const getNode = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
-      const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
-      return visibleNodes.find(n => {
-        const dx = n.x*canvas.width - mx, dy = n.y*canvas.height - my;
-        const r = 10 + (n.score||0)*1.5 + 4;
-        return dx*dx + dy*dy < r*r;
-      }) || null;
-    };
-
-    canvas.onmousemove = (e) => {
-      const n = getNode(e);
-      const newHover = n ? n.id : null;
-      if (newHover !== irpHoverNode) {
-        irpHoverNode = newHover;
-        canvas.style.cursor = newHover ? 'pointer' : 'default';
-        drawIRP();
-      }
-    };
-    canvas.onclick = (e) => {
-      const n = getNode(e);
-      if (n) openIrpCard(n.id);
-    };
-    canvas.onmouseleave = () => { irpHoverNode = null; drawIRP(); };
-  }
+  // Hover & click handlers — reattach every draw so getNode always uses
+  // the current visibleNodes (stale closure bug if attached only once)
+  const getNode = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
+    const liveNodes = irpNodes.filter(n => irpSelectedCountries.has(n.id));
+    return liveNodes.find(n => {
+      const dx = n.x*canvas.width - mx, dy = n.y*canvas.height - my;
+      const r = 10 + (n.score||0)*1.5 + 6;
+      return dx*dx + dy*dy < r*r;
+    }) || null;
+  };
+  canvas.onmousemove = (e) => {
+    const n = getNode(e);
+    const newHover = n ? n.id : null;
+    if (newHover !== irpHoverNode) {
+      irpHoverNode = newHover;
+      canvas.style.cursor = newHover ? 'pointer' : 'default';
+      drawIRP();
+    }
+  };
+  canvas.onclick = (e) => {
+    const n = getNode(e);
+    if (n) openIrpCard(n.id);
+  };
+  canvas.onmouseleave = () => { irpHoverNode = null; drawIRP(); };
 }
 
 // ── Matrix view ────────────────────────────────────────────────────────────
