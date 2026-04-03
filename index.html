@@ -3136,16 +3136,12 @@ async function buildSidebarBodyList() {
   const container = document.getElementById('sbBodyList');
   if (!container) return;
   try {
-    const data = await fetch(BACKEND_URL + '/feed?limit=1500&sort=date').then(r => r.json());
-    const counts = {};
-    (data.items || []).forEach(item => { counts[item.body] = (counts[item.body]||0)+1; });
-    _sidebarBodyData = Object.entries(counts)
-      .sort((a,b) => b[1]-a[1])
-      .map(([body,count]) => ({
-        body, count,
-        flag:   BODY_FLAGS_MAP[body]   || '🌐',
-        region: BODY_REGION_MAP[body]  || 'Other',
-      }));
+    const bodies = await fetch(BACKEND_URL + '/stats/bodies').then(r => r.json());
+    _sidebarBodyData = bodies.map(({body, count}) => ({
+      body, count,
+      flag:   BODY_FLAGS_MAP[body]  || '🌐',
+      region: BODY_REGION_MAP[body] || 'Other',
+    }));
     renderSidebarBodyList();
   } catch(e) {
     console.warn('buildSidebarBodyList:', e);
