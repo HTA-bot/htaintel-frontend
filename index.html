@@ -5117,6 +5117,7 @@ const IRP_COUNTRY_RULES = {
   AU: { name:'Australia',     formula:'none',   basket:[],                                                                    reviewMonths:12, priceType:'ex-manufacturer', strength:'indirect', note:'PBAC uses cost-effectiveness + cost-minimisation. No formal IRP basket. Informally watches UK, DE, SE.' },
   CA: { name:'Canada',        formula:'avg',    basket:['UK','DE','AU','SE','NL','CH','BE','IT','FR'],                        reviewMonths:12, priceType:'ex-factory', strength:'binding',  note:'PMPRB references 9 countries. New guidelines from 2022.' },
   UK: { name:'UK',            formula:'none',   basket:[],                                                                    reviewMonths:0,  priceType:'ex-manufacturer', strength:'anchor',   note:'UK does NOT use IRP. NICE cost-effectiveness driven. UK is one of the MOST REFERENCED countries globally — a low UK price creates cascade risk.' },
+  US: { name:'United States', formula:'free',   basket:[],                            reviewMonths:0,  priceType:'list',       strength:'anchor',   note:'No formal IRP. Manufacturer sets list price freely. IRA (2022) enables Medicare negotiation after 9 years (small molecule) or 13 years (biologic). Referenced by JP and KR.' },
 };
 
 // Cascade delay model (months before re-reference typically triggers)
@@ -5132,7 +5133,7 @@ const IRP_CASCADE_DELAY = {
 const IRP_FORMULA_FACTOR = {
   AT: 0.95, BE: 0.92, BG: 1.00, CH: 0.98, CZ: 0.88, DE: 0.90, ES: 0.93, FR: 0.92,
   GR: 1.00, HU: 0.87, IL: 0.93, IT: 0.92, JP: 0.95, KR: 0.91, NL: 0.93, PL: 1.00,
-  PT: 0.93, RO: 1.00, SE: 0.94, SG: 0.95, SK: 0.89, AU: 1.00, CA: 0.93, UK: 1.00,
+  PT: 0.93, RO: 1.00, SE: 0.94, SG: 0.95, SK: 0.89, AU: 1.00, CA: 0.93, UK: 1.00, US: 1.00,
 };
 
 // ── Launch Sequence Optimizer ──────────────────────────────────────────────
