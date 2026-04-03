@@ -2973,7 +2973,7 @@ function setGroup(g, el) {
     } else if (g === 'g7') {
       shouldCheck = G7_BODIES.some(b => name.toLowerCase().includes(b.toLowerCase()));
     } else if (g === 'latam') {
-      shouldCheck = ['IETS Colombia','DIGEMID Peru','ISP Chile'].some(b => name.includes(b));
+      shouldCheck = ['IETS Colombia','DIGEMID Peru','ISP Chile','ARCSA Ecuador','DINAVISA Paraguay'].some(b => name.includes(b));
     } else if (g === 'mideast') {
       shouldCheck = ['SFDA Saudi'].some(b => name.includes(b));
     }
@@ -3167,6 +3167,7 @@ const BODY_REGION_MAP = {
   'TLV':'EU','NCPE':'EU','HIQA':'EU','INFARMED':'EU','Swissmedic':'EU',
   'FDA':'Americas','Health Canada':'Americas','CMS':'Americas',
   'IETS Colombia':'Latin America','DIGEMID Peru':'Latin America','ISP Chile':'Latin America',
+  'ARCSA Ecuador':'Latin America','DINAVISA Paraguay':'Latin America',
   'PBAC':'Asia-Pacific','PHARMAC (NZ)':'Asia-Pacific',
   'ACE':'Asia-Pacific','PMDA':'Asia-Pacific',
   'SFDA Saudi':'Middle East',
