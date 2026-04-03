@@ -858,10 +858,20 @@ body {
 
 /* Matrix view */
 .irp-matrix-wrap {
-  flex: 1;
-  overflow: auto;
-  padding: 16px;
   display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 20px;
+  z-index: 9000;
+  max-width: 92vw;
+  max-height: 85vh;
+  overflow: auto;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
 }
 
 .matrix-table {
@@ -2135,6 +2145,7 @@ body {
         </div>
         <div class="irp-body">
           <canvas id="irpCanvas"></canvas>
+          <div id="irpMatrixBackdrop" onclick="setIrpView('network', document.querySelector('.irp-view-btn'))" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:8999"></div>
           <div class="irp-matrix-wrap" id="irpMatrix" style="display:none"></div>
           <div class="irp-compare-wrap" id="irpCompare" style="display:none"></div>
 
@@ -2560,12 +2571,14 @@ function setIrpView(view, el) {
   irpView = view;
   document.querySelectorAll('.irp-view-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
-  const canvas  = document.getElementById('irpCanvas');
-  const matrix  = document.getElementById('irpMatrix');
-  const compare = document.getElementById('irpCompare');
-  canvas.style.display  = view === 'network' ? 'block' : 'none';
-  matrix.style.display  = view === 'matrix'  ? 'block' : 'none';
-  compare.style.display = view === 'compare' ? 'flex'  : 'none';
+  const canvas   = document.getElementById('irpCanvas');
+  const matrix   = document.getElementById('irpMatrix');
+  const compare  = document.getElementById('irpCompare');
+  const matrixBd = document.getElementById('irpMatrixBackdrop');
+  canvas.style.display   = view === 'network' ? 'block' : 'none';
+  matrix.style.display   = view === 'matrix'  ? 'block' : 'none';
+  compare.style.display  = view === 'compare' ? 'flex'  : 'none';
+  if (matrixBd) matrixBd.style.display = view === 'matrix' ? 'block' : 'none';
   if (view === 'network') drawIRP();
   if (view === 'matrix')  renderMatrix();
   if (view === 'compare') renderCompare();
@@ -2821,7 +2834,12 @@ function renderMatrix() {
   });
   html += '</tr></tfoot></table>';
 
-  document.getElementById('irpMatrix').innerHTML = html;
+  document.getElementById('irpMatrix').innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;'+'margin-bottom:10px">'+
+    '<div style="font-size:12px;font-weight:600;color:var(--text2)">IRP Reference Matrix</div>'+
+    '<button onclick="setIrpView(\'network\',document.querySelector(\'.irp-view-btn\'))" '+
+    'style="background:none;border:none;color:var(--text3);font-size:18px;'+
+    'cursor:pointer;padding:0 4px">✕</button></div>' + html;
 }
 
 // ── Compare view (up to 4 countries) ──────────────────────────────────────
