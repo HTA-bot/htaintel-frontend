@@ -3760,12 +3760,20 @@ async function fetchFDAApprovals() {
     const data = await res.json();
     document.getElementById('usa-stat-fda').textContent = data.meta?.results?.total || '—';
     document.getElementById('usa-stat-fda-sub').textContent = 'Last 90 days';
+    const subTypeLabels = {
+      ORIG:'New Drug', SUPPL:'Supplemental', REAC:'Reactivation',
+      SE:'Safety Supplement', NDA:'New Drug', BLA:'Biologic', ANDA:'Generic',
+    };
     return (data.results || []).map(r => {
-      const sub = (r.submissions || []).find(s => s.submission_status === 'AP') || {};
-      const brand = r.openfda?.brand_name?.[0] || r.openfda?.generic_name?.[0] || 'Unknown drug';
-      const appNo = r.application_number || '';
+      const sub    = (r.submissions || []).find(s => s.submission_status === 'AP') || {};
+      const appNo  = r.application_number || '';
+      const brand  = r.openfda?.brand_name?.[0]
+                  || r.openfda?.generic_name?.[0]
+                  || r.openfda?.substance_name?.[0]
+                  || (appNo || 'Drug application');
+      const subLbl = subTypeLabels[sub.submission_type] || sub.submission_type || 'Drug';
       return {
-        title: `${brand} — FDA ${sub.submission_type || ''} approval`,
+        title: `${brand} — FDA ${subLbl} Approval`,
         meta:  `${appNo} · ${sub.submission_status_date || ''} · CDER`,
         cat:   'Approval', type: 'fda',
         link:  `https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&ApplNo=${appNo.replace(/[^0-9]/g,'')}`,
