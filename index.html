@@ -1984,6 +1984,11 @@ body {
           Mid East
           <span class="sb-count" id="grp-count-mideast">—</span>
         </button>
+        <button class="sb-group-btn" onclick="setGroup('ap',this)">
+          <span class="sb-group-icon" style="font-size:14px">🌏</span>
+          Asia Pacific
+          <span class="sb-count" id="grp-count-ap">—</span>
+        </button>
         <button class="sb-group-btn" onclick="setGroup('watchlist',this)" id="watchlistBtn">
           <span class="sb-group-icon" style="font-size:14px">⭐</span>
           Watchlist
@@ -3067,6 +3072,8 @@ function setGroup(g, el) {
       shouldCheck = ['IETS Colombia','DIGEMID Peru','ISP Chile','ARCSA Ecuador','DINAVISA Paraguay','ANVISA Brazil','ANMAT Argentina'].some(b => name.includes(b));
     } else if (g === 'mideast') {
       shouldCheck = ['SFDA Saudi'].some(b => name.includes(b));
+    } else if (g === 'ap') {
+      shouldCheck = ['PBAC','ACE','PMDA','PHARMAC','NMPA China'].some(b => name.includes(b));
     }
     shouldCheck ? check.classList.add('checked') : check.classList.remove('checked');
   });
@@ -3083,16 +3090,21 @@ let currentSort = 'date'; // 'date' | 'irp' | 'tag'
 let currentTA   = '';
 
 const GROUP_REGIONS = {
-  all:  null,
-  eu:   null,   // EU filtered by body list below, not region tag
-  irp:  'irp',
-  g7:   null,
+  all:     null,
+  eu:      null,
+  irp:     'irp',
+  g7:      null,
+  ap:      'ap',
+  latam:   'am',
+  mideast: 'me',
 };
 
 const GROUP_BODIES = {
-  eu:  ['EMA / EUHA', 'EMA', 'EUHA', 'EUnetHTA', 'CHMP', 'NICE', 'IQWiG / G-BA', 'SMC'],
-  g7:  ['NICE', 'IQWiG', 'G-BA', 'HAS', 'AIFA', 'PMDA', 'Health Canada', 'FDA', 'CMS',
-         'IQWiG / G-BA'],
+  eu:      ['EMA / EUHA','EMA','EUHA','EUnetHTA','CHMP','NICE','IQWiG / G-BA','SMC'],
+  g7:      ['NICE','IQWiG','G-BA','HAS','AIFA','PMDA','Health Canada','FDA','CMS','IQWiG / G-BA'],
+  ap:      ['PBAC','ACE','PMDA','PHARMAC','NMPA China'],
+  latam:   ['IETS Colombia','DIGEMID Peru','ISP Chile','ARCSA Ecuador','DINAVISA Paraguay','ANVISA Brazil','ANMAT Argentina'],
+  mideast: ['SFDA Saudi'],
 };
 
 function getCheckedBodies() {
@@ -4596,10 +4608,13 @@ function applyProfileToFeed(p) {
 function showGroupFilterBadge(group) {
   // Show what the current group filter is doing
   const labels = {
-    all: null,  // No badge for all
-    eu:  '🇪🇺 European Union — EMA / EUHA decisions',
-    irp: '⬡ IRP Reference Set — IRP-sensitive decisions only',
-    g7:  '★ G7 Nations — Major HTA bodies only',
+    all:     null,
+    eu:      '🇪🇺 European Union — EMA / EUHA decisions',
+    irp:     '⬡ IRP Reference Set — IRP-sensitive decisions only',
+    g7:      '★ G7 Nations — Major HTA bodies only',
+    ap:      '🌏 Asia Pacific — PBAC, ACE, PMDA, PHARMAC, NMPA China',
+    latam:   '🌎 Latin America — ANVISA, ANMAT, and regional bodies',
+    mideast: '🌍 Middle East — SFDA Saudi Arabia',
   };
   let badge = document.getElementById('groupFilterBadge');
   if (!labels[group]) {
@@ -5380,14 +5395,21 @@ function renderLSOResults({ drugName, launchCC, launchPrice, priceUnit, launchRu
 
 async function updateGroupCounts() {
   try {
-    const stats = await fetch(BACKEND_URL + '/stats').then(r => r.json());
+    const [stats, bodies] = await Promise.all([
+      fetch(BACKEND_URL + '/stats').then(r => r.json()),
+      fetch(BACKEND_URL + '/stats/bodies').then(r => r.json()),
+    ]);
     const setCount = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    // All backend items are EMA (EU). IRP is 315. G7 includes EMA + others from mock.
-    setCount('grp-count-all', stats.total_items || '570');
-    setCount('grp-count-eu',  stats.total_items || '570');
-    setCount('grp-count-irp', stats.irp_impacted || '315');
-    setCount('grp-count-g7',  '7');
-  } catch(e) {}
+    const sumBodies = (list) => list.reduce((s, name) =>
+      s + (bodies.find(b => b.body.toLowerCase().includes(name.toLowerCase()))?.count || 0), 0);
+    setCount('grp-count-all',     stats.total_items  || '--');
+    setCount('grp-count-irp',     stats.irp_impacted || '--');
+    setCount('grp-count-eu',      sumBodies(['EMA','NICE','IQWiG','SMC','HAS','ZIN','NCPE','KCE','TLV','MHRA','Swissmedic','INFARMED','HIQA']));
+    setCount('grp-count-g7',      sumBodies(['NICE','HAS','IQWiG','PMDA','Health Canada','FDA','CMS']));
+    setCount('grp-count-ap',      sumBodies(['PBAC','ACE','PMDA','PHARMAC','NMPA China']));
+    setCount('grp-count-latam',   sumBodies(['ANVISA Brazil','ANMAT Argentina','IETS Colombia','DIGEMID Peru','ISP Chile','ARCSA Ecuador','DINAVISA Paraguay']));
+    setCount('grp-count-mideast', sumBodies(['SFDA Saudi']));
+  } catch(e) { console.warn('updateGroupCounts:', e); }
 }
 
 // ══════════════════════════════════════════
