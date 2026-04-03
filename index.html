@@ -559,6 +559,14 @@ body {
 .tag-guidance    { background: var(--accent-lt); color: var(--accent); }
 .tag-consultation{ background: var(--amber-lt);  color: var(--amber); }
 .tag-irp         { background: var(--purple-lt); color: var(--purple); }
+.tag-out-positive-major        { background:#d1fae5; color:#065f46; font-weight:700; }
+.tag-out-positive-considerable { background:#d1fae5; color:#065f46; }
+.tag-out-positive-minor        { background:#ecfdf5; color:#059669; }
+.tag-out-positive-nonquantifiable { background:#ecfdf5; color:#059669; }
+.tag-out-negative              { background:#fee2e2; color:#991b1b; }
+.tag-out-restricted            { background:#fef3c7; color:#92400e; }
+.tag-out-consultation          { background:#ede9fe; color:#5b21b6; }
+.tag-ta { background:var(--surface-2,#f1f5f9); color:var(--muted,#64748b); font-size:9px; text-transform:capitalize; }
 
 .fc-source {
   font-size: 11px;
@@ -1849,6 +1857,9 @@ body {
           <div class="nav-item" data-tab="usa" onclick="switchTab(this)">
         <span class="nav-icon">⊛</span> USA Hub
       </div>
+      <div class="nav-item" data-tab="precedents" onclick="switchTab(this)">
+        <span class="nav-icon">🔍</span> Precedents
+      </div>
     </nav>
 
     <div class="topbar-right">
@@ -2033,6 +2044,9 @@ body {
             <div id="searchSuggestions" style="display:none;position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:9999;max-height:220px;overflow-y:auto;overflow-x:hidden"></div>
             <span id="searchClear" onclick="clearSearch()" style="display:none;position:absolute;right:70px;cursor:pointer;opacity:.5;font-size:18px;line-height:1" title="Clear">✕</span>
             <span id="searchCount" style="position:absolute;right:8px;font-size:11px;color:var(--text3);white-space:nowrap;pointer-events:none"></span>
+          </div>
+          <div class="filter-pills ta-pill-row" id="taPillRow" style="flex-wrap:wrap;min-height:28px">
+            <div class="fpill ta-pill active" onclick="setTA('',this)">🏷 All TAs</div>
           </div>
           <div class="filter-pills">
             <div class="fpill active" onclick="setPill('all',this)">All</div>
@@ -2349,7 +2363,83 @@ body {
         </div>
       </section>
 
-    </main>
+    
+      <!-- ── PRECEDENTS PANEL ── -->
+      <div class="panel" id="panel-precedents">
+        <div style="padding:20px;max-width:1100px;margin:0 auto">
+          <h2 style="margin:0 0 4px;font-size:18px;font-weight:700">Precedent Finder</h2>
+          <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Filter HTA decisions by therapeutic area, body, and outcome to find comparable cases.</p>
+
+          <!-- Filters row -->
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:flex-end">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:11px;font-weight:600;color:var(--muted)">DRUG / INN</label>
+              <input id="prec-inn" placeholder="e.g. pembrolizumab" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:180px;background:var(--surface);color:var(--text)" oninput="runPrecedentSearch()">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:11px;font-weight:600;color:var(--muted)">THERAPEUTIC AREA</label>
+              <select id="prec-ta" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface);color:var(--text)" onchange="runPrecedentSearch()">
+                <option value="">All TAs</option>
+                <option value="oncology">Oncology</option>
+                <option value="immunology">Immunology</option>
+                <option value="rare_disease">Rare Disease</option>
+                <option value="neurology">Neurology</option>
+                <option value="cardiology">Cardiology</option>
+                <option value="diabetes">Diabetes / Obesity</option>
+                <option value="respiratory">Respiratory</option>
+                <option value="infectious">Infectious Disease</option>
+                <option value="haematology">Haematology</option>
+                <option value="ophthalmology">Ophthalmology</option>
+                <option value="musculoskeletal">Musculoskeletal</option>
+                <option value="gastroenterology">Gastroenterology</option>
+                <option value="psychiatry">Psychiatry</option>
+                <option value="dermatology">Dermatology</option>
+                <option value="womens_health">Women's Health</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:11px;font-weight:600;color:var(--muted)">HTA BODY</label>
+              <select id="prec-body" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface);color:var(--text)" onchange="runPrecedentSearch()">
+                <option value="">All Bodies</option>
+                <option>EMA / EUHA</option><option>NICE</option><option>SMC</option>
+                <option>IQWiG / G-BA</option><option>HAS</option><option>ZIN</option>
+                <option>NCPE</option><option>PBAC</option><option>ACE</option>
+                <option>PMDA</option><option>FDA</option><option>MHRA</option>
+                <option>KCE</option><option>TLV</option><option>INFARMED</option>
+                <option>HIQA</option><option>Swissmedic</option><option>PHARMAC (NZ)</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:11px;font-weight:600;color:var(--muted)">OUTCOME</label>
+              <select id="prec-outcome" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface);color:var(--text)" onchange="runPrecedentSearch()">
+                <option value="">All Outcomes</option>
+                <option value="positive">Positive</option>
+                <option value="positive_major">★★★ Major benefit</option>
+                <option value="positive_considerable">★★ Considerable benefit</option>
+                <option value="positive_minor">★ Minor benefit</option>
+                <option value="restricted">◑ Restricted</option>
+                <option value="negative">✗ Negative</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:11px;font-weight:600;color:var(--muted)">DATE RANGE</label>
+              <select id="prec-days" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface);color:var(--text)" onchange="runPrecedentSearch()">
+                <option value="">All time</option>
+                <option value="90">Last 90 days</option>
+                <option value="180">Last 6 months</option>
+                <option value="365">Last 12 months</option>
+                <option value="730">Last 2 years</option>
+              </select>
+            </div>
+            <button onclick="clearPrecedentFilters()" style="padding:7px 14px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface);color:var(--muted);cursor:pointer">Clear</button>
+          </div>
+
+          <!-- Results -->
+          <div id="prec-summary" style="font-size:12px;color:var(--muted);margin-bottom:10px">—</div>
+          <div id="prec-results" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+      </div>
+</main>
   </div>
 </div>
 
@@ -2989,6 +3079,7 @@ function setGroup(g, el) {
 
 let currentGroupFilter = 'all';
 let currentSort = 'date'; // 'date' | 'irp' | 'tag'
+let currentTA   = '';
 
 const GROUP_REGIONS = {
   all:  null,
@@ -3067,6 +3158,8 @@ async function fetchAndRenderFeed(append = false) {
   if (tag && tag !== 'irp')                   url += '&tag=' + tag;
   if (q)                                      url += '&q=' + encodeURIComponent(q);
   if (_activeBodyFilter)                       url += '&body=' + encodeURIComponent(_activeBodyFilter);
+  if (currentTA)                               url += '&ta='   + encodeURIComponent(currentTA);
+  if (q && /^[a-z][a-z0-9]{3,}$/.test(q.trim())) url += '&inn=' + encodeURIComponent(q.trim());
 
   // Show skeleton while loading (only when no current content or explicit refresh)
   const feedList = document.getElementById('feedList');
@@ -3306,6 +3399,8 @@ function renderFeed(data, highlightQ) {
       <div class="fc-footer">
         <span class="tag tag-${d.tag}">${d.tag.toUpperCase()}</span>
         ${d.irp ? '<span class="tag tag-irp">IRP-LINKED</span>' : ''}
+        ${d.outcome && !['positive','guidance','negative'].includes(d.outcome) ? `<span class="tag tag-out-${d.outcome.replace(/_/g,'-')}">${{'positive_major':'★★★ Major','positive_considerable':'★★ Considerable','positive_minor':'★ Minor','positive_nonquantifiable':'★ Non-quant.','restricted':'◑ Restricted','consultation':'◎ Consult.'}[d.outcome]||d.outcome}</span>` : ''}
+        ${d.ta && d.ta !== 'other' ? `<span class="tag tag-ta">${d.ta.replace(/_/g,' ')}</span>` : ''}
         <span class="fc-source">${d.body}</span>
         <span class="fc-time">${d.time}</span>
       </div>
@@ -3371,9 +3466,32 @@ let feedLoading     = false;   // prevents concurrent fetches
 
 function setPill(type, el) {
   activePillFilter = type;
-  document.querySelectorAll('.fpill').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.fpill:not(.ta-pill)').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   fetchAndRenderFeed();
+}
+
+function setTA(ta, el) {
+  currentTA = ta;
+  document.querySelectorAll('.ta-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  fetchAndRenderFeed();
+}
+
+async function loadTAFilter() {
+  try {
+    const res = await fetch(BACKEND_URL + '/stats/ta');
+    const tas = await res.json();
+    const row = document.getElementById('taPillRow');
+    if (!row) return;
+    tas.filter(t => t.count > 8 && t.ta !== 'other').forEach(t => {
+      const pill = document.createElement('div');
+      pill.className = 'fpill ta-pill';
+      pill.textContent = t.label + ' (' + t.count + ')';
+      pill.onclick = function() { setTA(t.ta, this); };
+      row.appendChild(pill);
+    });
+  } catch(e) { console.warn('TA filter failed', e); }
 }
 
 function filterFeed() {
@@ -4601,6 +4719,9 @@ switchTab = function(el, silent) {
     usaDataCache._loaded = true;
     refreshUSAData();
   }
+  if (el.dataset && el.dataset.tab === 'precedents') {
+    runPrecedentSearch();
+  }
   if (!silent) {
     const p = activeProfile();
     if (p) { p.activeTab = el.dataset.tab; saveState('View saved'); }
@@ -4626,6 +4747,7 @@ function enterApp() {
   applyProfile();
   renderProfileList();
   buildSidebarBodyList();
+  loadTAFilter();
 }
 
 
@@ -5333,6 +5455,93 @@ if (appState.activeUserId && activeUser()) {
   setInterval(pingBackend, 10 * 60 * 1000);
   pingBackend(); // immediate ping on load
 
+
+// ── PRECEDENT FINDER ─────────────────────────────────────────────────────
+async function runPrecedentSearch() {
+  const inn     = document.getElementById('prec-inn')?.value.trim() || '';
+  const ta      = document.getElementById('prec-ta')?.value || '';
+  const body    = document.getElementById('prec-body')?.value || '';
+  const outcome = document.getElementById('prec-outcome')?.value || '';
+  const days    = document.getElementById('prec-days')?.value || '';
+
+  let url = BACKEND_URL + '/feed?limit=200&sort=date';
+  if (inn)     url += '&inn='     + encodeURIComponent(inn);
+  if (ta)      url += '&ta='      + encodeURIComponent(ta);
+  if (body)    url += '&body='    + encodeURIComponent(body);
+  if (outcome) url += '&outcome=' + encodeURIComponent(outcome);
+
+  const summaryEl  = document.getElementById('prec-summary');
+  const resultsEl  = document.getElementById('prec-results');
+  if (!summaryEl || !resultsEl) return;
+  summaryEl.textContent = 'Loading…';
+  resultsEl.innerHTML = '';
+
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    let items  = data.items || [];
+
+    // Client-side date filter
+    if (days) {
+      const cutoff = Date.now() - parseInt(days) * 86400000;
+      items = items.filter(i => i.timestamp && new Date(i.timestamp).getTime() > cutoff);
+    }
+
+    summaryEl.textContent = items.length + ' results' +
+      (inn ? ' · drug: ' + inn : '') +
+      (ta ? ' · TA: ' + ta.replace(/_/g,' ') : '') +
+      (body ? ' · body: ' + body : '') +
+      (outcome ? ' · outcome: ' + outcome.replace(/_/g,' ') : '') +
+      (days ? ' · last ' + days + 'd' : '');
+
+    if (!items.length) {
+      resultsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No matching precedents found. Try broadening your filters.</div>';
+      return;
+    }
+
+    const outcomeLabel = {
+      positive_major:'★★★ Major', positive_considerable:'★★ Considerable',
+      positive_minor:'★ Minor', positive_nonquantifiable:'★ Non-quant.',
+      negative:'✗ Negative', restricted:'◑ Restricted',
+      consultation:'◎ Consult.', positive:'Positive', guidance:'Guidance'
+    };
+    const outcomeColor = {
+      positive_major:'#d1fae5', positive_considerable:'#d1fae5',
+      positive_minor:'#ecfdf5', positive_nonquantifiable:'#ecfdf5',
+      negative:'#fee2e2', restricted:'#fef3c7', consultation:'#ede9fe',
+      positive:'#dbeafe', guidance:'#f1f5f9'
+    };
+
+    resultsEl.innerHTML = items.map(item => `
+      <a href="${item.link||'#'}" target="_blank" rel="noopener noreferrer"
+         style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);text-decoration:none;color:inherit;transition:border-color .15s"
+         onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:20px;line-height:1">${item.flag||'🌐'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.title}</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.summary||''}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+            <span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:${outcomeColor[item.outcome]||'#f1f5f9'};color:var(--text)">${outcomeLabel[item.outcome]||item.outcome||item.tag||''}</span>
+            <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface-2,#f1f5f9);color:var(--muted)">${item.body}</span>
+            ${item.ta && item.ta!=='other' ? `<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface-2,#f1f5f9);color:var(--muted)">${item.ta.replace(/_/g,' ')}</span>` : ''}
+            <span style="font-size:11px;color:var(--muted);margin-left:auto">${item.time}</span>
+          </div>
+        </div>
+      </a>
+    `).join('');
+  } catch(e) {
+    summaryEl.textContent = 'Error loading results.';
+    console.error('Precedent search failed', e);
+  }
+}
+
+function clearPrecedentFilters() {
+  ['prec-inn','prec-ta','prec-body','prec-outcome','prec-days'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  runPrecedentSearch();
+}
 </script>
 </body>
 </html>P
