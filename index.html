@@ -771,15 +771,17 @@ body {
 .irp-body {
   flex: 1;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
   position: relative;
 }
 
 #irpCanvas {
   width: 100%;
-  height: 100%;
+  flex: 1;
   display: block;
   cursor: grab;
+  min-height: 0;
 }
 
 #irpCanvas:active { cursor: grabbing; }
