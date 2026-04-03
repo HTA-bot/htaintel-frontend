@@ -2962,6 +2962,10 @@ function setGroup(g, el) {
       shouldCheck = EU_BODIES.some(b => name.toLowerCase().includes(b.toLowerCase()));
     } else if (g === 'g7') {
       shouldCheck = G7_BODIES.some(b => name.toLowerCase().includes(b.toLowerCase()));
+    } else if (g === 'latam') {
+      shouldCheck = ['IETS Colombia','DIGEMID Peru','ISP Chile'].some(b => name.includes(b));
+    } else if (g === 'mideast') {
+      shouldCheck = ['SFDA Saudi'].some(b => name.includes(b));
     }
     shouldCheck ? check.classList.add('checked') : check.classList.remove('checked');
   });
@@ -3151,9 +3155,11 @@ const BODY_REGION_MAP = {
   'EMA / EUHA':'EU','NICE':'EU','SMC':'EU','MHRA':'EU','HAS':'EU',
   'G-BA':'EU','IQWiG':'EU','IQWiG / G-BA':'EU','KCE':'EU','ZIN':'EU',
   'TLV':'EU','NCPE':'EU','HIQA':'EU','INFARMED':'EU','Swissmedic':'EU',
-  'FDA':'Americas','Health Canada':'Americas',
+  'FDA':'Americas','Health Canada':'Americas','CMS':'Americas',
+  'IETS Colombia':'Latin America','DIGEMID Peru':'Latin America','ISP Chile':'Latin America',
   'PBAC':'Asia-Pacific','PHARMAC (NZ)':'Asia-Pacific',
   'ACE':'Asia-Pacific','PMDA':'Asia-Pacific',
+  'SFDA Saudi':'Middle East',
 };
 let _sidebarBodyData  = [];
 let _activeBodyFilter = null;
