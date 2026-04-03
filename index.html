@@ -3636,37 +3636,8 @@ let hoveredNode = null;
 
 irpNodes.forEach(n => nodeMap[n.id] = n);
 
-function setIrpView(view, el) {
-  irpView = view;
-  document.querySelectorAll('.irp-view-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  const canvas = document.getElementById('irpCanvas');
-  const matrix = document.getElementById('irpMatrix');
-  if (view === 'network') {
-    canvas.style.display = 'block';
-    matrix.style.display = 'none';
-    drawIRP();
-  } else {
-    canvas.style.display = 'none';
-    matrix.style.display = 'block';
-    renderMatrix();
-  }
-}
-
-function initIRP() {
-  const canvas = document.getElementById('irpCanvas');
-  const wrap = canvas.parentElement;
-  canvas.width = wrap.clientWidth;
-  canvas.height = wrap.clientHeight;
-  drawIRP();
-  canvas.addEventListener('mousemove', onIRPHover);
-  canvas.addEventListener('mouseleave', () => {
-    hoveredNode = null;
-    document.getElementById('irpTooltip').style.display = 'none';
-    drawIRP();
-  });
-}
-
+f
+f
 function getNodePx(n, W, H) {
   return { x: n.x * W, y: n.y * H };
 }
@@ -3801,48 +3772,7 @@ function onIRPHover(e) {
   }
 }
 
-function renderMatrix() {
-  const countries = ['DE','UK','FR','SE','BE','NL','IT','ES','AU','CA','AT','CH','JP'];
-  const fullNames = {DE:'Germany',UK:'UK',FR:'France',SE:'Sweden',BE:'Belgium',NL:'Netherlands',IT:'Italy',ES:'Spain',AU:'Australia',CA:'Canada',AT:'Austria',CH:'Switzerland',JP:'Japan'};
-  const referencers = ['AT','CH','PL','CZ','HU','SK','GR','PT','RO','BG','KR','SG','IL'];
-  const refNames = {AT:'Austria',CH:'Switzerland',PL:'Poland',CZ:'Czech Rep.',HU:'Hungary',SK:'Slovakia',GR:'Greece',PT:'Portugal',RO:'Romania',BG:'Bulgaria',KR:'S. Korea',SG:'Singapore',IL:'Israel'};
-
-  const matrix = {};
-  referencers.forEach(r => {
-    matrix[r] = {};
-    countries.forEach(c => { matrix[r][c] = 0; });
-    irpEdges.filter(([f]) => f === r).forEach(([,t]) => { if (matrix[r][t] !== undefined) matrix[r][t] = 1; });
-  });
-
-  const colTotals = countries.map(c => referencers.reduce((s, r) => s + (matrix[r][c] || 0), 0));
-  const maxTotal  = Math.max(...colTotals);
-
-  let html = '<table class="matrix-table"><thead><tr><th class="row-head">References →</th>';
-  countries.forEach(c => {
-    html += `<th title="${fullNames[c]}" style="writing-mode:vertical-rl;transform:rotate(180deg);padding:4px 3px;font-size:10px;">${c}</th>`;
-  });
-  html += '</tr></thead><tbody>';
-
-  referencers.forEach(r => {
-    html += `<tr><td class="label-cell" title="${refNames[r]}">${r}</td>`;
-    countries.forEach((c, i) => {
-      const val = matrix[r][c];
-      const intensity = val ? 0.12 + 0.7 * (colTotals[i] / maxTotal) : 0;
-      const bg = val ? `rgba(79,70,229,${intensity.toFixed(2)})` : 'transparent';
-      html += `<td style="background:${bg}" title="${refNames[r]} references ${fullNames[c]}">${val ? '●' : ''}</td>`;
-    });
-    html += '</tr>';
-  });
-
-  html += '</tbody><tfoot><tr><td class="label-cell" style="font-size:10px;color:#a8a29e">Total refs</td>';
-  colTotals.forEach(t => {
-    html += `<td style="font-size:10px;font-family:var(--font-mono);color:#4f46e5;border-top:2px solid #e8e4de;">${t}</td>`;
-  });
-  html += '</tr></tfoot></table>';
-
-  document.getElementById('irpMatrix').innerHTML = html;
-}
-
+f
 // ══════════════════════════════════════════
 // USA HUB — LIVE DATA (openFDA API + RSS)
 // ══════════════════════════════════════════
