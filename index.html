@@ -2138,11 +2138,14 @@ body {
           <div class="irp-matrix-wrap" id="irpMatrix" style="display:none"></div>
           <div class="irp-compare-wrap" id="irpCompare" style="display:none"></div>
 
+          <!-- Country card popup backdrop -->
+          <div id="irpCardBackdrop" onclick="closeIrpCard()"
+               style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:8999"></div>
           <!-- Country card popup -->
           <div id="irpCardPopup" style="display:none;position:fixed;top:50%;left:50%;
                transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);
-               border-radius:12px;padding:20px;width:340px;max-width:90vw;z-index:9000;
-               box-shadow:0 8px 32px rgba(0,0,0,0.4);flex-direction:column;gap:10px">
+               border-radius:12px;padding:20px;width:360px;max-width:92vw;z-index:9000;
+               box-shadow:0 8px 40px rgba(0,0,0,0.5);flex-direction:column;gap:10px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
               <span id="irpCardFlag" style="font-size:28px"></span>
               <div>
@@ -2655,11 +2658,15 @@ function openIrpCard(id) {
     if (compareBtn) setIrpView('compare', compareBtn);
   };
 
+  const bd = document.getElementById('irpCardBackdrop');
+  if (bd) bd.style.display = 'block';
   card.style.display = 'flex';
 }
 
 function closeIrpCard() {
   document.getElementById('irpCardPopup').style.display = 'none';
+  const bd = document.getElementById('irpCardBackdrop');
+  if (bd) bd.style.display = 'none';
   irpCardNode = null;
 }
 
@@ -2684,7 +2691,7 @@ function drawIRP() {
   for (let x = 0; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
   for (let y = 0; y < H; y += 50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
 
-  // Draw edges
+  // Draw edges — highlight those connected to hovered node
   visibleEdges.forEach(([from, to]) => {
     const f = nodeMap[from], t = nodeMap[to];
     if (!f || !t) return;
@@ -2695,13 +2702,14 @@ function drawIRP() {
     const toR = 10 + (t.score || 0) * 1.5;
     const ex = tx - ux * toR, ey = ty - uy * toR;
 
-    ctx.strokeStyle = 'rgba(148,163,184,0.25)';
-    ctx.lineWidth   = 0.8;
+    const connected = irpHoverNode && (from === irpHoverNode || to === irpHoverNode);
+    ctx.strokeStyle = connected ? 'rgba(99,102,241,0.85)' : 'rgba(148,163,184,0.2)';
+    ctx.lineWidth   = connected ? 1.8 : 0.7;
     ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(ex, ey); ctx.stroke();
 
     // Arrowhead
     const angle = Math.atan2(ey-fy, ex-fx);
-    ctx.fillStyle = 'rgba(148,163,184,0.4)';
+    ctx.fillStyle = connected ? 'rgba(99,102,241,0.9)' : 'rgba(148,163,184,0.35)';
     ctx.beginPath();
     ctx.moveTo(ex, ey);
     ctx.lineTo(ex - 7*Math.cos(angle-0.35), ey - 7*Math.sin(angle-0.35));
