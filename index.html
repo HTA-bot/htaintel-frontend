@@ -1583,6 +1583,152 @@ body {
 .feed-skeleton-card .sk-title { width: 80%; height: 14px; }
 .feed-skeleton-card .sk-body  { width: 95%; }
 .feed-skeleton-card .sk-short { width: 40%; }
+
+/* ═══════════════════════════════════════════
+   MOBILE RESPONSIVE  (@media ≤768px)
+═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Topbar: shrink, show hamburger */
+  .topbar { padding: 0 10px; gap: 0; }
+  .logo-text { font-size: 15px; }
+
+  /* Hide full nav — replaced by bottom nav */
+  .nav { display: none !important; }
+
+  /* Sidebar: off-canvas overlay */
+  .sidebar {
+    position: fixed !important;
+    top: 52px; left: 0; bottom: 0;
+    z-index: 900;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    width: 260px !important;
+    min-width: 260px !important;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.18);
+  }
+  .sidebar.sb-open {
+    transform: translateX(0);
+  }
+
+  /* Sidebar backdrop */
+  #sbBackdrop {
+    display: none;
+    position: fixed;
+    inset: 52px 0 0 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 899;
+  }
+  #sbBackdrop.sb-open { display: block; }
+
+  /* Body fills full width */
+  .body { display: block !important; overflow: auto !important; }
+  .main { height: calc(100vh - 52px - 54px); overflow: hidden; }
+
+  /* Feed toolbar wraps */
+  .feed-toolbar {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    padding: 8px 10px !important;
+  }
+  .search-wrap { min-width: 0 !important; flex: 1 1 100% !important; order: 0; }
+  .filter-pills { flex: 1 1 auto; overflow-x: auto; flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .filter-pills::-webkit-scrollbar { display: none; }
+  .ta-pill-row { flex: 1 1 100% !important; }
+  .sort-control { flex: 0 0 auto; order: 3; }
+
+  /* Feed cards — full width, bigger tap targets */
+  .feed-item, .usa-item { padding: 12px 12px !important; }
+  .fpill { padding: 7px 14px !important; font-size: 12px !important; }
+
+  /* USA hub — single column */
+  .usa-body {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    height: calc(100vh - 52px - 54px - 120px) !important;
+  }
+  .usa-col { border-right: none !important; border-bottom: 1px solid var(--border); }
+  .usa-col:last-child { border-bottom: none; }
+  .usa-items { overflow: visible !important; max-height: none !important; }
+
+  /* IRP canvas — scrollable container */
+  .irp-body { overflow: auto !important; -webkit-overflow-scrolling: touch; }
+  #irpCanvas { touch-action: pan-x pan-y; }
+
+  /* Panels */
+  .panel { overflow-y: auto !important; }
+  #panel-precedents, #panel-calendar, #panel-lso {
+    height: calc(100vh - 52px - 54px) !important;
+  }
+
+  /* IRP matrix — scrollable */
+  .irp-matrix-wrap, .matrix-table { overflow-x: auto !important; }
+
+  /* Stat bar — 2 cols */
+  .stat-bar { flex-wrap: wrap !important; }
+  .stat-cell { flex: 1 1 40% !important; min-width: 0; }
+
+  /* Topbar right — compact */
+  .topbar-right { gap: 6px; }
+  .topbar-action span:not(.topbar-action-icon) { display: none; }
+
+  /* Hamburger button */
+  #mobileMenuBtn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 18px;
+    flex-shrink: 0;
+    color: var(--text2);
+  }
+
+  /* Bottom nav bar */
+  #mobileNav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 54px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 800;
+    align-items: stretch;
+  }
+  .mob-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 9px;
+    font-weight: 500;
+    padding: 4px 2px;
+    border: none;
+    background: none;
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.12s;
+  }
+  .mob-nav-item .mn-icon { font-size: 18px; line-height: 1; }
+  .mob-nav-item.active { color: var(--accent); }
+  .mob-nav-item:active { background: var(--surface2); }
+}
+
+/* Desktop: hide mobile-only elements */
+@media (min-width: 769px) {
+  #mobileMenuBtn { display: none !important; }
+  #mobileNav     { display: none !important; }
+  #sbBackdrop    { display: none !important; }
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1843,6 +1989,7 @@ body {
       <span class="logo-text">HTA<span>Intel</span></span>
     </div>
 
+    <button id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="Menu" style="display:none">☰</button>
     <nav class="nav">
       <div class="nav-item active" data-tab="feed" onclick="switchTab(this)">
         <span class="nav-icon">⊞</span> Global Feed
@@ -6180,6 +6327,109 @@ function hidePrecInnSugg() {
   const b = document.getElementById('precInnSugg');
   if (b) b.style.display = 'none';
 }
+
+// ── MOBILE ────────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const bd = document.getElementById('sbBackdrop');
+  if (!sb) return;
+  const open = sb.classList.toggle('sb-open');
+  if (bd) bd.classList.toggle('sb-open', open);
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+
+function closeSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const bd = document.getElementById('sbBackdrop');
+  if (sb) sb.classList.remove('sb-open');
+  if (bd) bd.classList.remove('sb-open');
+  document.body.style.overflow = '';
+}
+
+function mobNav(tab, el) {
+  // Close sidebar if open
+  closeSidebar();
+  // Deactivate all bottom nav items
+  document.querySelectorAll('.mob-nav-item').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  // Switch the desktop nav too
+  const desktopNav = document.querySelector(`.nav-item[data-tab="${tab}"]`);
+  if (desktopNav) {
+    switchTab(desktopNav, true);
+  } else {
+    // Fallback: direct panel switch
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById('panel-' + tab);
+    if (panel) panel.classList.add('active');
+    if (tab === 'calendar') loadCalendar(false);
+    if (tab === 'precedents') runPrecedentSearch();
+    if (tab === 'irp') setTimeout(initIRP, 60);
+  }
+}
+
+// Sync bottom nav with desktop tab switches
+const _origSwitchTab = switchTab;
+function switchTab(el, silent) {
+  _origSwitchTab(el, silent);
+  // Sync mobile bottom nav highlight
+  const tab = el?.dataset?.tab;
+  if (tab) {
+    document.querySelectorAll('.mob-nav-item').forEach(b => {
+      b.classList.toggle('active', b.dataset?.tab === tab);
+    });
+  }
+}
+
+// Close sidebar on panel switch from sidebar body links
+document.addEventListener('click', e => {
+  if (window.innerWidth <= 768 && e.target.closest('.sb-body-item')) {
+    setTimeout(closeSidebar, 150);
+  }
+});
+
+// Swipe to open/close sidebar
+(function() {
+  let startX = 0, startY = 0;
+  document.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (window.innerWidth > 768) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = Math.abs(e.changedTouches[0].clientY - startY);
+    if (dy > 60) return; // mostly vertical — ignore
+    const sb = document.querySelector('.sidebar');
+    const isOpen = sb?.classList.contains('sb-open');
+    if (dx > 60 && startX < 30 && !isOpen) toggleSidebar();  // swipe right from edge
+    if (dx < -60 && isOpen) closeSidebar();                    // swipe left to close
+  }, { passive: true });
+})();
 </script>
+
+<!-- Mobile sidebar backdrop -->
+<div id="sbBackdrop" onclick="toggleSidebar()"></div>
+
+<!-- Mobile bottom nav -->
+<nav id="mobileNav" style="display:none">
+  <button class="mob-nav-item active" data-tab="feed" onclick="mobNav('feed',this)">
+    <span class="mn-icon">⊞</span>Feed
+  </button>
+  <button class="mob-nav-item" data-tab="irp" onclick="mobNav('irp',this)">
+    <span class="mn-icon">⬡</span>IRP
+  </button>
+  <button class="mob-nav-item" data-tab="usa" onclick="mobNav('usa',this)">
+    <span class="mn-icon">⊛</span>USA
+  </button>
+  <button class="mob-nav-item" data-tab="precedents" onclick="mobNav('precedents',this)">
+    <span class="mn-icon">🔍</span>Search
+  </button>
+  <button class="mob-nav-item" data-tab="calendar" onclick="mobNav('calendar',this)">
+    <span class="mn-icon">📅</span>Calendar
+  </button>
+  <button class="mob-nav-item" id="mobMoreBtn" onclick="toggleSidebar()">
+    <span class="mn-icon">☰</span>More
+  </button>
+</nav>
 </body>
 </html>P
