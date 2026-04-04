@@ -4294,7 +4294,7 @@ function makeAECol(items, q) {
         ).join('');
         return `
           <div class="usa-item" style="animation-delay:${i*0.04}s;border-left:3px solid #dc2626;cursor:pointer"
-               onclick="window.open(item.link,'_blank')">
+               onclick="window.open('${item.link.replace(/'/g,'%27')}','_blank')">
             <div class="usa-item-title">${item.title}</div>
             ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin:4px 0">${badges}</div>` : ''}
             ${chips  ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${chips}</div>`  : ''}
