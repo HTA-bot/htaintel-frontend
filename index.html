@@ -1271,7 +1271,7 @@ body {
 
 /* ─── AUTH SCREEN ───────────────────────────────────────────────── */
 .auth-screen {
-  position: fixed; inset: 0; z-index: 500;
+  position: fixed; inset: 0; z-index: 1000;
   background: var(--bg);
   display: flex; align-items: center; justify-content: center;
 }
@@ -1345,7 +1345,7 @@ body {
 
 /* ─── SETUP WIZARD ──────────────────────────────────────────────── */
 .wizard-screen {
-  position: fixed; inset: 0; z-index: 490;
+  position: fixed; inset: 0; z-index: 1000;
   background: var(--bg);
   display: flex; align-items: center; justify-content: center;
 }
@@ -5123,6 +5123,8 @@ function pickColor() { return palette[_pc++ % palette.length]; }
 function enterApp() {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('wizardScreen').classList.add('hidden');
+  const mn = document.getElementById('mobileNav');
+  if (mn) mn.style.removeProperty('display');
 
   const u = activeUser();
   if (!u) return;
