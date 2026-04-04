@@ -2262,7 +2262,7 @@ body {
           </div>
           <div class="stat-cell">
             <div class="stat-val" id="usa-stat-events">—</div>
-            <div class="stat-label">Adverse events (30d)</div>
+            <div class="stat-label">Serious AE reports</div>
             <div class="stat-delta delta-nt" id="usa-stat-events-sub">Loading…</div>
           </div>
           <div class="stat-cell" style="align-items:flex-end">
@@ -4063,15 +4063,41 @@ async function fetchFDARecalls() {
 
 // openFDA: adverse events count
 async function fetchFDAEvents() {
-  const since = new Date(Date.now() - 30*24*36e5).toISOString().slice(0,10).replace(/-/g,'');
-  const url = `https://api.fda.gov/drug/event.json?search=receivedate:[${since}+TO+99991231]&limit=1`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    const data = await res.json();
-    const total = data.meta?.results?.total;
-    document.getElementById('usa-stat-events').textContent = total ? (total/1000).toFixed(1)+'K' : '—';
-    document.getElementById('usa-stat-events-sub').textContent = 'Reports submitted';
-  } catch {
+    const [countRes, listRes] = await Promise.allSettled([
+      fetch('https://api.fda.gov/drug/event.json?search=serious:1&limit=1',
+            { signal: AbortSignal.timeout(8000) }),
+      fetch('https://api.fda.gov/drug/event.json?search=serious:1&limit=10&sort=receivedate:desc',
+            { signal: AbortSignal.timeout(10000) }),
+    ]);
+    if (countRes.status === 'fulfilled') {
+      const cd = await countRes.value.json();
+      const total = cd.meta?.results?.total;
+      if (total) {
+        document.getElementById('usa-stat-events').textContent =
+          total >= 1e6 ? (total/1e6).toFixed(1)+'M' : (total/1000).toFixed(0)+'K';
+        document.getElementById('usa-stat-events-sub').textContent = 'Serious reports (FAERS)';
+      }
+    }
+    if (listRes.status === 'fulfilled') {
+      const ld = await listRes.value.json();
+      usaDataCache.ae = (ld.results || []).map(r => {
+        const drugs     = [...new Set((r.patient?.drug||[]).map(d=>d.medicinalproduct).filter(Boolean))].slice(0,3);
+        const reactions = (r.patient?.reaction||[]).map(rx=>rx.reactionmeddrapt).filter(Boolean).slice(0,4);
+        const flags=[];
+        if (+r.seriousnessdeath===1)            flags.push('death');
+        if (+r.seriousnesslifethreatening===1)  flags.push('life-threatening');
+        if (+r.seriousnesshospitalization===1)  flags.push('hospitalization');
+        if (+r.seriousnessdisabling===1)        flags.push('disabling');
+        const dateRaw = r.receivedate||'';
+        const dateStr = dateRaw.length===8
+          ? dateRaw.slice(0,4)+'-'+dateRaw.slice(4,6)+'-'+dateRaw.slice(6,8) : dateRaw;
+        return { title:drugs.join(' + ')||'Unknown drug', reactions, flags, date:dateStr,
+                 reportId:r.safetyreportid, country:r.occurcountry||r.primarysourcecountry||'' };
+      });
+      renderUSALive();
+    }
+  } catch(e) {
     document.getElementById('usa-stat-events-sub').textContent = 'API unavailable';
   }
 }
@@ -4185,7 +4211,7 @@ function makeUSACol(icon, iconClass, name, sub, items, type) {
     </div>`;
 }
 
-let usaDataCache = { fda:[], cms:[], hhs:[] };
+let usaDataCache = { fda:[], cms:[], hhs:[], ae:[] };
 
 async function refreshUSAData() {
   const btn = document.getElementById('usaRefreshBtn');
@@ -4228,6 +4254,44 @@ async function refreshUSAData() {
   if (btn) { btn.textContent = '↻ Refresh'; btn.disabled = false; }
 }
 
+function makeAECol(items, q) {
+  const flagBadge = {
+    'death':            ['#fee2e2','#dc2626','💀 Death'],
+    'life-threatening': ['#fef3c7','#d97706','⚠️ Life-threatening'],
+    'hospitalization':  ['#dbeafe','#1d4ed8','🏥 Hospitalization'],
+    'disabling':        ['#f3e8ff','#7c3aed','⚡ Disabling'],
+  };
+  const ql = (q||'').toLowerCase();
+  const rows = items.length
+    ? items.map(item => {
+        if (ql && ![item.title,...(item.reactions||[])].some(t=>t.toLowerCase().includes(ql))) return '';
+        const badges = (item.flags||[]).map(f => {
+          const [bg,col,label] = flagBadge[f]||['#f1f5f9','#64748b',f];
+          return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${bg};color:${col};font-weight:600;white-space:nowrap">${label}</span>`;
+        }).join('');
+        const chips = (item.reactions||[]).map(r =>
+          `<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:var(--surface2);color:var(--text2);white-space:nowrap">${r}</span>`
+        ).join('');
+        return `<a href="https://www.fda.gov/safety/medwatch-fda-safety-information-and-adverse-event-reporting-program"
+          target="_blank" rel="noopener" class="usa-item" style="border-left:3px solid #dc2626">
+          <div class="usa-item-meta">${item.date}${item.country?' · '+item.country:''} · FAERS</div>
+          <div class="usa-item-title" style="font-weight:600">${item.title}</div>
+          ${badges?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${badges}</div>`:''}
+          ${chips?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${chips}</div>`:''}
+        </a>`;
+      }).filter(Boolean).join('')
+    : '<div style="padding:24px 16px;text-align:center;color:var(--text3);font-size:12px">Loading adverse event reports…</div>';
+  const footer = `<div style="padding:8px 14px;font-size:10px;color:var(--text3);border-top:1px solid var(--border);line-height:1.5">Source: FDA FAERS. Serious reports only. Submissions are unverified — causality not established by FDA.</div>`;
+  return `<div class="usa-col">
+    <div class="usa-col-header">
+      <span class="usa-col-icon" style="background:#fee2e2">⚠️</span>
+      <div><div class="usa-col-title">Adverse Events</div>
+      <div class="usa-col-sub">FAERS · Serious · Recent</div></div>
+    </div>
+    <div class="usa-col-body">${rows}${footer}</div>
+  </div>`;
+}
+
 function renderUSALive() {
   const q = (document.getElementById('usaSearch')?.value || '').toLowerCase();
   const filter = items => q ? items.filter(i => (i.title+' '+i.meta+' '+(i.desc||'')).toLowerCase().includes(q)) : items;
@@ -4235,7 +4299,8 @@ function renderUSALive() {
   document.getElementById('usaBody').innerHTML =
     makeUSACol('💊','icon-fda','FDA','Approvals · Recalls · Safety alerts',filter(usaDataCache.fda),'fda') +
     makeUSACol('🏥','icon-cms','CMS / IRA','Medicare · Medicaid · Drug pricing',filter(usaDataCache.cms),'cms') +
-    makeUSACol('🏛️','icon-hhs','HHS / NIH / BARDA','Health policy · Research · Preparedness',filter(usaDataCache.hhs),'hhs');
+    makeUSACol('🏛️','icon-hhs','HHS / NIH / BARDA','Health policy · Research · Preparedness',filter(usaDataCache.hhs),'hhs') +
+    makeAECol(usaDataCache.ae, q);
 }
 
 function filterUSAItems() { renderUSALive(); }
