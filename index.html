@@ -4932,10 +4932,17 @@ function applyProfile() {
   document.getElementById('udropEmail').textContent = u.email || '';
   document.getElementById('udropRole').textContent  = p ? p.roleLabel : 'No profile';
 
-  // Restore active tab
+  // Restore active tab — query both desktop nav and mobile nav items
   if (p && p.activeTab) {
-    const tabEl = document.querySelector(`.nav-item[data-tab="${p.activeTab}"]`);
+    const tabEl = document.querySelector(`.nav-item[data-tab="${p.activeTab}"]`)
+               || document.querySelector(`.mob-nav-item[data-tab="${p.activeTab}"]`);
     if (tabEl) switchTab(tabEl, true);
+    else {
+      // Fallback: directly activate panel without switchTab
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById('panel-' + p.activeTab);
+      if (panel) panel.classList.add('active');
+    }
   }
 
   // Wire profile keywords and regions into the feed
@@ -5087,6 +5094,7 @@ function exportData() {
 // Wrap switchTab to also persist
 // switchTab extended — no wrapper needed, just patch the original
 const _switchTabBase = function(el) {
+  if (!el) return;
   const tab = el.dataset.tab;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
@@ -6372,6 +6380,7 @@ function mobNav(tab, el) {
 // Sync bottom nav with desktop tab switches
 const _origSwitchTab = switchTab;
 function switchTab(el, silent) {
+  if (!el) return;
   _origSwitchTab(el, silent);
   // Sync mobile bottom nav highlight
   const tab = el?.dataset?.tab;
