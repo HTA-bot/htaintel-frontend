@@ -1584,6 +1584,8 @@ body {
 .feed-skeleton-card .sk-body  { width: 95%; }
 .feed-skeleton-card .sk-short { width: 40%; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PptxGenJS/3.12.0/pptxgen.bundled.js"></script>
 </head>
 <body>
 <!-- ── AUTH SCREEN ── -->
@@ -2447,6 +2449,10 @@ body {
 
           <!-- Results -->
           <div id="prec-summary" style="font-size:12px;color:var(--muted);margin-bottom:10px">—</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <button onclick="exportPrecExcel()" style="padding:6px 14px;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;display:flex;align-items:center;gap:5px" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📊 Export Excel</button>
+            <button onclick="exportPrecPptx()" style="padding:6px 14px;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;display:flex;align-items:center;gap:5px" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📑 Export PowerPoint</button>
+          </div>
           <div id="prec-results" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
@@ -5715,6 +5721,7 @@ async function runPrecedentSearch() {
       items = items.filter(i => i.timestamp && new Date(i.timestamp).getTime() > cutoff);
     }
 
+    window._precItems = items; // cache for export
     summaryEl.textContent = items.length + ' results' +
       (inn ? ' · drug: ' + inn : '') +
       (ta ? ' · TA: ' + ta.replace(/_/g,' ') : '') +
@@ -5761,6 +5768,261 @@ async function runPrecedentSearch() {
     summaryEl.textContent = 'Error loading results.';
     console.error('Precedent search failed', e);
   }
+}
+
+
+// ── PRECEDENT EXPORT ─────────────────────────────────────────────────────
+function exportPrecExcel() {
+  const items = window._precItems;
+  if (!items || !items.length) { alert('Run a search first — no results to export.'); return; }
+
+  const outcomeLabel = {
+    positive_major:'Major benefit', positive_considerable:'Considerable benefit',
+    positive_minor:'Minor benefit', positive_nonquantifiable:'Non-quantifiable benefit',
+    negative:'Negative', restricted:'Restricted', consultation:'Consultation',
+    positive:'Positive', guidance:'Guidance',
+  };
+
+  // Build worksheet data
+  const header = ['Body','Country Flag','Title','Drug / INN','Therapeutic Area',
+                  'Outcome','Tag','IRP Sensitive','Date','Summary','Source Link'];
+  const rows = items.map(i => [
+    i.body || '',
+    i.flag || '',
+    i.title || '',
+    i.inn || '',
+    (i.ta || '').replace(/_/g,' '),
+    outcomeLabel[i.outcome] || i.outcome || '',
+    i.tag || '',
+    i.irp ? 'Yes' : 'No',
+    (i.timestamp || '').slice(0,10),
+    i.summary || '',
+    i.link || '',
+  ]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:18},{wch:6},{wch:60},{wch:22},{wch:20},
+    {wch:24},{wch:14},{wch:12},{wch:12},{wch:80},{wch:60},
+  ];
+
+  // Header row styling — bold navy
+  const headerStyle = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'1E3A5F'}},
+                         alignment:{horizontal:'center',vertical:'center'} };
+  header.forEach((_, ci) => {
+    const cellRef = XLSX.utils.encode_cell({r:0, c:ci});
+    if (ws[cellRef]) ws[cellRef].s = headerStyle;
+  });
+
+  // Freeze header row
+  ws['!freeze'] = { xSplit:0, ySplit:1 };
+
+  // Auto-filter on header row
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:rows.length, c:header.length-1}}) };
+
+  XLSX.utils.book_append_sheet(wb, ws, 'HTA Precedents');
+
+  // Metadata sheet
+  const metaData = [
+    ['HTA Intel — Precedent Export'],
+    ['Generated', new Date().toISOString().slice(0,16).replace('T',' ')],
+    ['Results', items.length],
+    ['Source', 'htaintel-frontend.vercel.app'],
+  ];
+  const wsMeta = XLSX.utils.aoa_to_sheet(metaData);
+  wsMeta['!cols'] = [{wch:20},{wch:40}];
+  XLSX.utils.book_append_sheet(wb, wsMeta, 'About');
+
+  const filename = 'HTA_Precedents_' + new Date().toISOString().slice(0,10) + '.xlsx';
+  XLSX.writeFile(wb, filename);
+}
+
+async function exportPrecPptx() {
+  const items = window._precItems;
+  if (!items || !items.length) { alert('Run a search first — no results to export.'); return; }
+
+  const outcomeLabel = {
+    positive_major:'★★★ Major benefit', positive_considerable:'★★ Considerable benefit',
+    positive_minor:'★ Minor benefit', positive_nonquantifiable:'★ Non-quantifiable',
+    negative:'✗ Negative', restricted:'◑ Restricted',
+    consultation:'◎ Consultation', positive:'Positive', guidance:'Guidance',
+  };
+  const outcomeColor = {
+    positive_major:'1A9E6A', positive_considerable:'1A9E6A', positive_minor:'2DB67D',
+    positive_nonquantifiable:'2DB67D', positive:'3B82F6',
+    negative:'DC2626', restricted:'D97706',
+    consultation:'7C3AED', guidance:'64748B',
+  };
+
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_WIDE';
+  pptx.author  = 'HTA Intel';
+  pptx.company = 'HTA Intel';
+  pptx.subject = 'HTA Precedent Analysis';
+
+  const NAVY  = '1E3A5F';
+  const WHITE = 'FFFFFF';
+  const LIGHT = 'F1F5F9';
+  const MUTED = '64748B';
+  const ACCENT = '4F46E5';
+
+  // ── Title slide ──────────────────────────────────────────────────────
+  const ts = pptx.addSlide();
+  ts.background = { color: NAVY };
+  ts.addText('HTA Intel', {
+    x:0.5, y:1.8, w:12.3, h:0.6,
+    fontSize:14, color:'94A3B8', fontFace:'Calibri', bold:false,
+  });
+  ts.addText('Precedent Analysis', {
+    x:0.5, y:2.4, w:12.3, h:1.4,
+    fontSize:40, color:WHITE, fontFace:'Calibri', bold:true,
+  });
+  ts.addText(items.length + ' decisions across ' +
+    [...new Set(items.map(i=>i.body))].length + ' HTA bodies', {
+    x:0.5, y:3.8, w:12.3, h:0.5,
+    fontSize:16, color:'CBD5E1', fontFace:'Calibri',
+  });
+  ts.addText('Generated ' + new Date().toLocaleDateString('en-GB',
+    {day:'numeric',month:'long',year:'numeric'}), {
+    x:0.5, y:6.8, w:12.3, h:0.3,
+    fontSize:11, color:'94A3B8', fontFace:'Calibri',
+  });
+
+  // ── Summary slide ────────────────────────────────────────────────────
+  const ss = pptx.addSlide();
+  ss.background = { color: WHITE };
+  ss.addShape(pptx.ShapeType.rect, { x:0, y:0, w:13.3, h:1.0, fill:{color:NAVY} });
+  ss.addText('Search Summary', {
+    x:0.4, y:0.12, w:12.5, h:0.75,
+    fontSize:22, color:WHITE, fontFace:'Calibri', bold:true,
+  });
+
+  const bodies    = [...new Set(items.map(i=>i.body))];
+  const outcomes  = items.reduce((a,i) => { a[i.outcome||'other']=(a[i.outcome||'other']||0)+1; return a; }, {});
+  const tas       = [...new Set(items.map(i=>i.ta).filter(Boolean))];
+
+  const statBoxes = [
+    { label:'Total decisions', value: items.length },
+    { label:'HTA bodies',      value: bodies.length },
+    { label:'Most common outcome', value: Object.entries(outcomes).sort((a,b)=>b[1]-a[1])[0]?.[0]?.replace(/_/g,' ') || '—' },
+    { label:'Therapeutic areas', value: tas.length },
+  ];
+  statBoxes.forEach((stat, i) => {
+    const x = 0.4 + i * 3.1;
+    ss.addShape(pptx.ShapeType.rect, { x, y:1.3, w:2.8, h:1.6, fill:{color:LIGHT}, line:{color:'E2E8F0',pt:1} });
+    ss.addText(String(stat.value), { x, y:1.5, w:2.8, h:0.7, fontSize:28, bold:true, color:NAVY, fontFace:'Calibri', align:'center' });
+    ss.addText(stat.label, { x, y:2.2, w:2.8, h:0.5, fontSize:11, color:MUTED, fontFace:'Calibri', align:'center' });
+  });
+
+  // Bodies breakdown
+  ss.addText('Bodies covered: ' + bodies.join(' · '), {
+    x:0.4, y:3.2, w:12.5, h:0.4, fontSize:11, color:MUTED, fontFace:'Calibri',
+  });
+
+  // Outcome breakdown bar
+  const total = items.length;
+  let xOff = 0.4;
+  const barW = 12.5;
+  ss.addText('Outcome distribution', { x:0.4, y:3.8, w:12.5, h:0.3, fontSize:12, bold:true, color:NAVY, fontFace:'Calibri' });
+  Object.entries(outcomes).sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([oc, cnt]) => {
+    const segW = (cnt/total) * barW;
+    const col  = outcomeColor[oc] || '94A3B8';
+    ss.addShape(pptx.ShapeType.rect, { x:xOff, y:4.15, w:segW, h:0.35, fill:{color:col} });
+    if (segW > 0.8) {
+      ss.addText(`${cnt}`, { x:xOff, y:4.15, w:segW, h:0.35, fontSize:9, color:WHITE, fontFace:'Calibri', align:'center', valign:'middle' });
+    }
+    xOff += segW;
+  });
+  // Legend
+  let legX = 0.4;
+  Object.entries(outcomes).sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([oc, cnt]) => {
+    const col = outcomeColor[oc] || '94A3B8';
+    ss.addShape(pptx.ShapeType.rect, { x:legX, y:4.65, w:0.14, h:0.14, fill:{color:col} });
+    ss.addText(`${(oc||'other').replace(/_/g,' ')} (${cnt})`, {
+      x:legX+0.18, y:4.6, w:1.8, h:0.25, fontSize:9, color:MUTED, fontFace:'Calibri',
+    });
+    legX += 2.1;
+  });
+
+  // ── Decision slides — 4 per slide ────────────────────────────────────
+  const CARDS_PER = 4;
+  for (let p = 0; p < items.length; p += CARDS_PER) {
+    const batch = items.slice(p, p + CARDS_PER);
+    const slide = pptx.addSlide();
+    slide.background = { color: WHITE };
+
+    // Header bar
+    slide.addShape(pptx.ShapeType.rect, { x:0, y:0, w:13.3, h:0.75, fill:{color:NAVY} });
+    slide.addText('HTA Decisions', {
+      x:0.4, y:0.1, w:10, h:0.55, fontSize:16, color:WHITE, fontFace:'Calibri', bold:true,
+    });
+    slide.addText(`${p+1}–${Math.min(p+CARDS_PER, items.length)} of ${items.length}`, {
+      x:10.5, y:0.1, w:2.4, h:0.55, fontSize:12, color:'94A3B8', fontFace:'Calibri', align:'right',
+    });
+
+    batch.forEach((item, idx) => {
+      const col  = idx % 2;
+      const row  = Math.floor(idx / 2);
+      const x    = 0.3 + col * 6.55;
+      const y    = 0.9 + row * 2.85;
+      const w    = 6.25;
+      const h    = 2.65;
+      const ocColor = outcomeColor[item.outcome] || '94A3B8';
+
+      // Card background
+      slide.addShape(pptx.ShapeType.rect, { x, y, w, h, fill:{color:'F8FAFC'}, line:{color:'E2E8F0',pt:1} });
+      // Outcome accent bar on left
+      slide.addShape(pptx.ShapeType.rect, { x, y, w:0.08, h, fill:{color:ocColor} });
+
+      // Body + flag
+      slide.addText(`${item.flag||''} ${item.body||''}`, {
+        x:x+0.15, y:y+0.1, w:w-0.4, h:0.28,
+        fontSize:10, color:MUTED, fontFace:'Calibri', bold:true,
+      });
+
+      // Title — truncate to 2 lines
+      const title = (item.title||'').slice(0,120);
+      slide.addText(title, {
+        x:x+0.15, y:y+0.38, w:w-0.4, h:0.7,
+        fontSize:11, color:'1E293B', fontFace:'Calibri', bold:true,
+        wrap:true, valign:'top',
+      });
+
+      // Summary
+      const summary = (item.summary||'').slice(0,160);
+      slide.addText(summary, {
+        x:x+0.15, y:y+1.1, w:w-0.4, h:0.7,
+        fontSize:9, color:MUTED, fontFace:'Calibri', wrap:true, valign:'top',
+      });
+
+      // Tags row
+      const ocLabel = (outcomeLabel[item.outcome]||item.outcome||'').slice(0,22);
+      const taLabel = (item.ta||'').replace(/_/g,' ');
+      const dateLabel = (item.timestamp||'').slice(0,10);
+      slide.addText(`${ocLabel}   ${taLabel}   ${dateLabel}`, {
+        x:x+0.15, y:y+1.88, w:w-0.4, h:0.25,
+        fontSize:8.5, color:'94A3B8', fontFace:'Calibri',
+      });
+
+      // IRP badge
+      if (item.irp) {
+        slide.addShape(pptx.ShapeType.rect, { x:x+w-0.7, y:y+0.1, w:0.55, h:0.2, fill:{color:'EDE9FE'} });
+        slide.addText('IRP', { x:x+w-0.7, y:y+0.1, w:0.55, h:0.2, fontSize:7, color:'7C3AED', fontFace:'Calibri', align:'center', bold:true });
+      }
+    });
+
+    // Footer
+    slide.addText('HTA Intel · htaintel-frontend.vercel.app', {
+      x:0.3, y:7.2, w:12.7, h:0.25,
+      fontSize:8, color:'CBD5E1', fontFace:'Calibri',
+    });
+  }
+
+  const filename = 'HTA_Precedents_' + new Date().toISOString().slice(0,10) + '.pptx';
+  await pptx.writeFile({ fileName: filename });
 }
 
 function clearPrecedentFilters() {
