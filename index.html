@@ -2453,13 +2453,23 @@ body {
 
       <!-- ── CALENDAR PANEL ── -->
       <div class="panel" id="panel-calendar">
-        <div style="padding:20px;max-width:900px;margin:0 auto">
+        <div style="padding:20px;max-width:960px;margin:0 auto">
           <h2 style="margin:0 0 4px;font-size:18px;font-weight:700">Decision Calendar</h2>
-          <p style="margin:0 0 16px;color:var(--muted);font-size:13px">
-            Upcoming HTA meetings and expected publication dates — next 6 months.
+          <p style="margin:0 0 14px;color:var(--muted);font-size:13px">
+            Upcoming HTA meetings, scheduled decisions, and expected publication dates — next 6 months.
           </p>
+          <!-- Body filter pills -->
+          <div id="calFilterRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;min-height:30px">
+            <div class="fpill ta-pill active" onclick="calToggleBody('',this)" id="calPillAll" style="font-size:11px">All bodies</div>
+          </div>
+          <!-- Type legend -->
+          <div style="display:flex;gap:12px;margin-bottom:14px;font-size:11px;color:var(--muted);align-items:center">
+            <span>🔵 Meeting</span>
+            <span>🟢 Decision / publication</span>
+            <span style="margin-left:auto;font-size:10px" id="calEventCount"></span>
+          </div>
           <div id="calLoading" style="padding:40px;text-align:center;color:var(--muted)">Loading…</div>
-          <div id="calGrid" style="display:none;flex-direction:column;gap:6px"></div>
+          <div id="calGrid" style="display:flex;flex-direction:column;gap:4px"></div>
         </div>
       </div>
 </main>
@@ -4836,7 +4846,7 @@ switchTab = function(el, silent) {
     runPrecedentSearch();
   }
   if (el.dataset && el.dataset.tab === 'calendar') {
-    loadCalendar();
+    loadCalendar(false);
   }
   if (!silent) {
     const p = activeProfile();
@@ -5667,64 +5677,116 @@ function clearPrecedentFilters() {
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────
-let _calLoaded = false;
-async function loadCalendar() {
-  if (_calLoaded) return;
-  _calLoaded = true;
+let _calData       = null;
+let _calBodyFilter = '';   // '' = all, else body name
+
+async function loadCalendar(force) {
+  if (_calData && !force) { renderCalendar(); return; }
   const loading = document.getElementById('calLoading');
   const grid    = document.getElementById('calGrid');
-  if (!loading || !grid) return;
+  if (loading) loading.style.display = 'block';
+  if (grid)    grid.innerHTML = '';
   try {
-    const r = await fetch(BACKEND_URL + '/calendar');
-    const d = await r.json();
-    const events = d.events || [];
-    loading.style.display = 'none';
-    grid.style.display    = 'flex';
-
-    if (!events.length) {
-      grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No upcoming events in the next 6 months.</div>';
-      return;
-    }
-
-    // Group by month
-    const byMonth = {};
-    events.forEach(e => {
-      const mon = e.date.slice(0, 7);
-      if (!byMonth[mon]) byMonth[mon] = [];
-      byMonth[mon].push(e);
-    });
-
-    const bodyColors = {
-      'NICE':'#dbeafe','SMC':'#f0fdf4','IQWiG / G-BA':'#fef9c3',
-      'PBAC':'#ffe4e6','HAS':'#f3e8ff','EMA / EUHA':'#e0f2fe',
-    };
-    const monthNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-    let html = '';
-    Object.entries(byMonth).sort().forEach(([mon, evts]) => {
-      const [yr, m] = mon.split('-');
-      html += `<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:12px 0 6px;border-bottom:1px solid var(--border);margin-bottom:4px">${monthNames[+m]} ${yr}</div>`;
-      evts.forEach(e => {
-        const day = e.date.slice(8);
-        const color = bodyColors[e.body] || 'var(--surface2)';
-        html += `
-          <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:8px;background:${color};margin-bottom:4px">
-            <div style="min-width:28px;text-align:center">
-              <div style="font-size:18px;font-weight:700;line-height:1">${+day}</div>
-              <div style="font-size:9px;color:var(--muted);text-transform:uppercase">${monthNames[+m]}</div>
-            </div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12px;font-weight:600;margin-bottom:2px">${e.flag} ${e.body}</div>
-              <div style="font-size:12px;color:var(--text2)">${e.drug ? `<strong>${e.drug}</strong> — ` : ''}${e.note}</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.05em">${e.type}</div>
-            </div>
-          </div>`;
+    const r    = await fetch(BACKEND_URL + '/calendar');
+    _calData   = await r.json();
+    // Build body filter pills from returned bodies list
+    const row  = document.getElementById('calFilterRow');
+    if (row && _calData.bodies) {
+      // Keep "All bodies" pill, add one per body
+      const existing = row.querySelectorAll('.cal-body-pill');
+      existing.forEach(p => p.remove());
+      _calData.bodies.forEach(b => {
+        const pill = document.createElement('div');
+        pill.className = 'fpill ta-pill cal-body-pill';
+        pill.style.fontSize = '11px';
+        pill.textContent = b;
+        pill.onclick = () => calToggleBody(b, pill);
+        row.appendChild(pill);
       });
-    });
-    grid.innerHTML = html;
+    }
+    renderCalendar();
   } catch(err) {
     if (loading) loading.textContent = 'Failed to load calendar.';
+    console.error('Calendar load failed', err);
   }
+}
+
+function calToggleBody(body, el) {
+  _calBodyFilter = body;
+  document.querySelectorAll('.cal-body-pill, #calPillAll').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const loading  = document.getElementById('calLoading');
+  const grid     = document.getElementById('calGrid');
+  const countEl  = document.getElementById('calEventCount');
+  if (!grid || !_calData) return;
+  if (loading) loading.style.display = 'none';
+
+  let events = _calData.events || [];
+  if (_calBodyFilter) {
+    events = events.filter(e => e.body === _calBodyFilter);
+  }
+
+  if (countEl) countEl.textContent = `${events.length} events`;
+
+  if (!events.length) {
+    grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No upcoming events for selected body.</div>';
+    return;
+  }
+
+  const bodyColors = {
+    'NICE':'#dbeafe','SMC':'#f0fdf4','IQWiG / G-BA':'#fef9c3',
+    'PBAC':'#ffe4e6','HAS':'#f3e8ff','EMA / EUHA':'#e0f2fe',
+    'ZIN':'#f0f9ff','TLV':'#f0fdf4','PMDA':'#fff7ed',
+    'Health Canada':'#fdf2f8','KCE':'#f5f3ff',
+  };
+  const typeIcon = { meeting:'🔵', decision:'🟢', publication:'🟢' };
+  const monthNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Group by month
+  const byMonth = {};
+  events.forEach(e => {
+    const mon = e.date.slice(0, 7);
+    if (!byMonth[mon]) byMonth[mon] = [];
+    byMonth[mon].push(e);
+  });
+
+  let html = '';
+  Object.entries(byMonth).sort().forEach(([mon, evts]) => {
+    const [yr, m] = mon.split('-');
+    html += `<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;
+      text-transform:uppercase;padding:10px 0 5px;border-bottom:1px solid var(--border);
+      margin-bottom:4px">${monthNames[+m]} ${yr} <span style="font-weight:400;opacity:.6">${evts.length} event${evts.length!==1?'s':''}</span></div>`;
+    evts.forEach(e => {
+      const day   = +e.date.slice(8);
+      const color = bodyColors[e.body] || 'var(--surface2)';
+      const icon  = typeIcon[e.type] || '📋';
+      html += `
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:9px 11px;
+          border-radius:8px;background:${color};margin-bottom:3px;border:1px solid transparent"
+          onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='transparent'">
+          <div style="min-width:30px;text-align:center;flex-shrink:0">
+            <div style="font-size:17px;font-weight:700;line-height:1;color:var(--text)">${day}</div>
+            <div style="font-size:8px;color:var(--muted);text-transform:uppercase;margin-top:1px">${monthNames[+m]}</div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:5px">
+              ${icon} <span>${e.flag} ${e.body}</span>
+              <span style="font-size:10px;font-weight:400;color:var(--muted);text-transform:uppercase;
+                padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.06)">${e.type}</span>
+            </div>
+            ${e.drug
+              ? `<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">${e.drug}</div>
+                 <div style="font-size:11px;color:var(--muted)">${e.note}</div>`
+              : `<div style="font-size:12px;color:var(--text2)">${e.note}</div>`}
+          </div>
+        </div>`;
+    });
+  });
+  grid.innerHTML = html;
 }
 
 // ── PRECEDENT FINDER INN AUTOCOMPLETE ────────────────────────────────────
