@@ -1733,6 +1733,7 @@ body {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 <!-- ── AUTH SCREEN ── -->
@@ -3543,7 +3544,6 @@ async function buildSidebarBodyList() {
     if (c) c.innerHTML = '<div style="padding:10px 14px;font-size:11px;color:var(--text3)">Unavailable</div>';
   }
 }
-
 function renderSidebarBodyList() {
   const container = document.getElementById('sbBodyList');
   if (!container || !_sidebarBodyData.length) return;
@@ -4607,6 +4607,16 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeShare()
 
 const STORAGE_KEY = 'htaintel_state';
 const BACKEND_URL = 'https://htaintel-backend.onrender.com';
+const SUPABASE_URL  = 'https://pwihrcbhrpukbtchrzpd.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3aWhyY2JocnB1a2J0Y2hyenBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMjk1NjIsImV4cCI6MjA5MDkwNTU2Mn0.il8pDD4eCGZsFB1eDLK2XWUoZODdrLgF6YK734S0-AU';
+// Supabase client — initialised after CDN loads
+let _sb = null;
+function sb() {
+  if (!_sb && window.supabase) {
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  }
+  return _sb;
+}
 const BACKEND_ENABLED = true;
 
 // Default state shape
@@ -4627,7 +4637,12 @@ function loadState() {
 
 function saveState(msg) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState)); } catch {}
-  showToast(msg || 'Preferences saved');
+  // Sync active profile to Supabase (non-blocking)
+  const p = activeProfile();
+  if (p && activeUser()?.id !== 'demo') {
+    saveProfileToSupabase(p).catch(() => {});
+  }
+  if (msg !== false) showToast(msg || 'Preferences saved');
 }
 
 let appState = loadState();
@@ -4671,22 +4686,25 @@ function showAuthError(msg) {
   el.textContent = msg; el.classList.add('show');
 }
 
-function doSignIn() {
+async function doSignIn() {
   const email = document.getElementById('siEmail').value.trim();
   const pass  = document.getElementById('siPassword').value;
   if (!email) return showAuthError('Please enter your email address.');
   if (!pass)  return showAuthError('Please enter your password.');
 
-  const user = appState.users.find(u => u.email === email.toLowerCase());
-  if (!user)  return showAuthError('No account found. Create one or continue as demo.');
-  if (user.password !== btoa(pass)) return showAuthError('Incorrect password. Please try again.');
-
-  appState.activeUserId = user.id;
-  saveState('Signed in successfully');
-  enterApp();
+  showAuthError('Signing in…');
+  try {
+    const { data, error } = await sb().auth.signInWithPassword({ email, password: pass });
+    if (error) return showAuthError(error.message || 'Sign in failed. Check your email and password.');
+    appState.activeUserId = data.user.id;
+    await loadUserFromSupabase(data.user);
+    enterApp();
+  } catch(e) {
+    showAuthError('Sign in failed. Please try again.');
+  }
 }
 
-function doSignUp() {
+async function doSignUp() {
   const first = document.getElementById('suFirst').value.trim();
   const last  = document.getElementById('suLast').value.trim();
   const email = document.getElementById('suEmail').value.trim();
@@ -4696,25 +4714,36 @@ function doSignUp() {
   if (!email) return showAuthError('Please enter your work email.');
   if (!email.includes('@')) return showAuthError('Please enter a valid email address.');
   if (pass.length < 6) return showAuthError('Password must be at least 6 characters.');
-  if (appState.users.find(u => u.email === email.toLowerCase()))
-    return showAuthError('An account with this email already exists. Sign in instead.');
 
-  const user = {
-    id: 'u_' + Date.now(),
-    firstName: first, lastName: last,
-    email: email.toLowerCase(),
-    password: btoa(pass),
-    initials: (first[0] + last[0]).toUpperCase(),
-    color: pickColor(),
-    profiles: [],
-    createdAt: Date.now(),
-  };
+  showAuthError('Creating account…');
+  try {
+    const { data, error } = await sb().auth.signUp({
+      email,
+      password: pass,
+      options: { data: { first_name: first, last_name: last } }
+    });
+    if (error) return showAuthError(error.message || 'Sign up failed. Please try again.');
 
-  appState.users.push(user);
-  appState.activeUserId = user.id;
-  saveState();
-  document.getElementById('authScreen').classList.add('hidden');
-  openWizard(true); // new user → go to wizard
+    // Build local user object from Supabase user
+    const user = {
+      id:        data.user.id,
+      firstName: first,
+      lastName:  last,
+      email:     email.toLowerCase(),
+      initials:  (first[0] + last[0]).toUpperCase(),
+      color:     pickColor(),
+      profiles:  [],
+      createdAt: Date.now(),
+    };
+    appState.users = appState.users.filter(u => u.id !== user.id);
+    appState.users.push(user);
+    appState.activeUserId = user.id;
+    saveState();
+    document.getElementById('authScreen').classList.add('hidden');
+    openWizard(true);
+  } catch(e) {
+    showAuthError('Sign up failed. Please try again.');
+  }
 }
 
 function doDemo() {
@@ -4745,7 +4774,8 @@ function doDemo() {
   enterApp();
 }
 
-function doSignOut() {
+async function doSignOut() {
+  try { if (sb()) await sb().auth.signOut(); } catch {} 
   appState.activeUserId = null;
   saveState('Signed out');
   closeUserMenu();
@@ -5836,12 +5866,21 @@ window.addEventListener('resize', () => {
 
 // ── Boot auth system ──
 // If a user is already saved and active, go straight into the app
-if (appState.activeUserId && activeUser()) {
-  enterApp();
-} else {
-  // Show auth screen
-  document.getElementById('authScreen').classList.remove('hidden');
-}
+// Try restoring Supabase session first, fall back to local state
+(async () => {
+  let restored = false;
+  if (window.supabase) {
+    restored = await restoreSession();
+  }
+  if (restored && activeUser()) {
+    enterApp();
+  } else if (appState.activeUserId && activeUser() && activeUser().id === 'demo') {
+    // Demo user — local only
+    enterApp();
+  } else {
+    document.getElementById('authScreen').classList.remove('hidden');
+  }
+})();
 
   // ── Keep-alive ping (Render free tier sleeps after 15min inactivity) ──
   function pingBackend() {
@@ -6188,6 +6227,160 @@ async function exportPrecPptx() {
 
   const filename = 'HTA_Precedents_' + new Date().toISOString().slice(0,10) + '.pptx';
   await pptx.writeFile({ fileName: filename });
+}
+
+
+// ── SUPABASE HELPERS ──────────────────────────────────────────────────────
+
+async function loadUserFromSupabase(sbUser) {
+  // Load profiles from Supabase DB
+  try {
+    const { data: profiles } = await sb()
+      .from('profiles')
+      .select('*')
+      .eq('user_id', sbUser.id)
+      .order('sort_order');
+
+    const meta = sbUser.user_metadata || {};
+    const user = {
+      id:        sbUser.id,
+      firstName: meta.first_name || sbUser.email.split('@')[0],
+      lastName:  meta.last_name  || '',
+      email:     sbUser.email,
+      initials:  ((meta.first_name||'?')[0] + (meta.last_name||'?')[0]).toUpperCase(),
+      color:     meta.color || '#4f46e5',
+      profiles:  (profiles || []).map(dbProfileToLocal),
+      createdAt: new Date(sbUser.created_at).getTime(),
+    };
+    appState.users = appState.users.filter(u => u.id !== user.id);
+    appState.users.push(user);
+    appState.activeUserId = user.id;
+    appState.currentProfile = 0;
+    saveState();
+  } catch(e) {
+    console.warn('loadUserFromSupabase failed:', e);
+  }
+}
+
+function dbProfileToLocal(row) {
+  return {
+    id:         row.id,
+    name:       row.name,
+    role:       row.role,
+    roleLabel:  row.role_label,
+    color:      row.color,
+    regions:    row.regions    || [],
+    keywords:   row.keywords   || [],
+    alertTypes: row.alert_types|| [],
+    feedPrefs:  row.feed_prefs || {},
+    digest:     row.digest     || {},
+    activeTab:  row.active_tab || 'feed',
+    activePill: row.active_pill|| 'all',
+  };
+}
+
+function localProfileToDb(profile, userId) {
+  return {
+    id:          profile.id,
+    user_id:     userId,
+    name:        profile.name       || 'My Profile',
+    role:        profile.role       || null,
+    role_label:  profile.roleLabel  || null,
+    color:       profile.color      || '#4f46e5',
+    regions:     profile.regions    || [],
+    keywords:    profile.keywords   || [],
+    alert_types: profile.alertTypes || [],
+    feed_prefs:  profile.feedPrefs  || {},
+    digest:      profile.digest     || {},
+    active_tab:  profile.activeTab  || 'feed',
+    active_pill: profile.activePill || 'all',
+  };
+}
+
+async function saveProfileToSupabase(profile) {
+  const u = activeUser();
+  if (!u || u.id === 'demo') return;
+  try {
+    const row = localProfileToDb(profile, u.id);
+    await sb().from('profiles').upsert(row, { onConflict: 'id' });
+  } catch(e) {
+    console.warn('saveProfileToSupabase failed:', e);
+  }
+}
+
+async function deleteProfileFromSupabase(profileId) {
+  const u = activeUser();
+  if (!u || u.id === 'demo') return;
+  try {
+    await sb().from('profiles').delete().eq('id', profileId).eq('user_id', u.id);
+  } catch(e) {
+    console.warn('deleteProfileFromSupabase failed:', e);
+  }
+}
+
+async function loadWatchlistFromSupabase() {
+  const u = activeUser();
+  if (!u || u.id === 'demo') return [];
+  try {
+    const { data } = await sb()
+      .from('watchlist')
+      .select('*')
+      .eq('user_id', u.id);
+    return data || [];
+  } catch(e) {
+    console.warn('loadWatchlistFromSupabase failed:', e);
+    return [];
+  }
+}
+
+async function addToWatchlist(item) {
+  const u = activeUser();
+  if (!u || u.id === 'demo') return;
+  try {
+    await sb().from('watchlist').upsert({
+      user_id:   u.id,
+      item_id:   item.id,
+      body:      item.body,
+      flag:      item.flag,
+      title:     item.title,
+      summary:   item.summary,
+      link:      item.link,
+      inn:       item.inn,
+      outcome:   item.outcome,
+      ta:        item.ta,
+      tag:       item.tag,
+      irp:       item.irp,
+      timestamp: item.timestamp,
+    }, { onConflict: 'user_id,item_id' });
+  } catch(e) {
+    console.warn('addToWatchlist failed:', e);
+  }
+}
+
+async function removeFromWatchlist(itemId) {
+  const u = activeUser();
+  if (!u || u.id === 'demo') return;
+  try {
+    await sb().from('watchlist').delete()
+      .eq('user_id', u.id).eq('item_id', itemId);
+  } catch(e) {
+    console.warn('removeFromWatchlist failed:', e);
+  }
+}
+
+// Session restore on page load
+async function restoreSession() {
+  if (!sb()) return false;
+  try {
+    const { data: { session } } = await sb().auth.getSession();
+    if (session) {
+      await loadUserFromSupabase(session.user);
+      return true;
+    }
+  } catch(e) {
+    console.warn('restoreSession failed:', e);
+  }
+  return false;
 }
 
 function clearPrecedentFilters() {
