@@ -4082,7 +4082,27 @@ async function fetchFDAEvents() {
     if (listRes.status === 'fulfilled') {
       const ld = await listRes.value.json();
       usaDataCache.ae = (ld.results || []).map(r => {
-        const drugs     = [...new Set((r.patient?.drug||[]).map(d=>d.medicinalproduct).filter(Boolean))].slice(0,3);
+        const drugObjs  = r.patient?.drug || [];
+        // Build per-drug link from NDA/BLA application_number, falling back to brand name search
+        const primaryDrug = drugObjs[0] || {};
+        const of = primaryDrug.openfda || {};
+        const appNums = of.application_number || [];
+        // Prefer NDA/BLA (brand) over ANDA (generic) for the link
+        const appNum = appNums.find(a => a.startsWith('NDA') || a.startsWith('BLA'))
+                    || appNums.find(a => a.startsWith('ANDA'))
+                    || '';
+        const brandName = (of.brand_name || [])[0] || primaryDrug.medicinalproduct || '';
+        let link;
+        if (appNum) {
+          // Strip NDA/BLA/ANDA prefix — Drugs@FDA uses numeric part only
+          const numOnly = appNum.replace(/^[A-Z]+/, '');
+          link = `https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&ApplNo=${numOnly}`;
+        } else if (brandName) {
+          link = `https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.page&q=${encodeURIComponent(brandName)}`;
+        } else {
+          link = 'https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm';
+        }
+        const drugs     = [...new Set(drugObjs.map(d => d.medicinalproduct).filter(Boolean))].slice(0,3);
         const reactions = (r.patient?.reaction||[]).map(rx=>rx.reactionmeddrapt).filter(Boolean).slice(0,4);
         const flags=[];
         if (+r.seriousnessdeath===1)            flags.push('death');
@@ -4093,7 +4113,7 @@ async function fetchFDAEvents() {
         const dateStr = dateRaw.length===8
           ? dateRaw.slice(0,4)+'-'+dateRaw.slice(4,6)+'-'+dateRaw.slice(6,8) : dateRaw;
         return { title:drugs.join(' + ')||'Unknown drug', reactions, flags, date:dateStr,
-                 reportId:r.safetyreportid, country:r.occurcountry||r.primarysourcecountry||'' };
+                 country:r.occurcountry||r.primarysourcecountry||'', link };
       });
       renderUSALive();
     }
@@ -4274,7 +4294,7 @@ function makeAECol(items, q) {
         ).join('');
         return `
           <div class="usa-item" style="animation-delay:${i*0.04}s;border-left:3px solid #dc2626;cursor:pointer"
-               onclick="window.open('https://www.fda.gov/safety/medwatch-fda-safety-information-and-adverse-event-reporting-program','_blank')">
+               onclick="window.open(item.link,'_blank')">
             <div class="usa-item-title">${item.title}</div>
             ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin:4px 0">${badges}</div>` : ''}
             ${chips  ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${chips}</div>`  : ''}
