@@ -4263,33 +4263,43 @@ function makeAECol(items, q) {
   };
   const ql = (q||'').toLowerCase();
   const rows = items.length
-    ? items.map(item => {
+    ? items.map((item, i) => {
         if (ql && ![item.title,...(item.reactions||[])].some(t=>t.toLowerCase().includes(ql))) return '';
         const badges = (item.flags||[]).map(f => {
           const [bg,col,label] = flagBadge[f]||['#f1f5f9','#64748b',f];
           return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${bg};color:${col};font-weight:600;white-space:nowrap">${label}</span>`;
         }).join('');
-        const chips = (item.reactions||[]).map(r =>
-          `<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:var(--surface2);color:var(--text2);white-space:nowrap">${r}</span>`
+        const chips = (item.reactions||[]).map(rx =>
+          `<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:var(--surface2);color:var(--text2);white-space:nowrap">${rx}</span>`
         ).join('');
-        return `<a href="https://www.fda.gov/safety/medwatch-fda-safety-information-and-adverse-event-reporting-program"
-          target="_blank" rel="noopener" class="usa-item" style="border-left:3px solid #dc2626">
-          <div class="usa-item-meta">${item.date}${item.country?' · '+item.country:''} · FAERS</div>
-          <div class="usa-item-title" style="font-weight:600">${item.title}</div>
-          ${badges?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${badges}</div>`:''}
-          ${chips?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${chips}</div>`:''}
-        </a>`;
+        return `
+          <div class="usa-item" style="animation-delay:${i*0.04}s;border-left:3px solid #dc2626;cursor:pointer"
+               onclick="window.open('https://www.fda.gov/safety/medwatch-fda-safety-information-and-adverse-event-reporting-program','_blank')">
+            <div class="usa-item-title">${item.title}</div>
+            ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin:4px 0">${badges}</div>` : ''}
+            ${chips  ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${chips}</div>`  : ''}
+            <div class="usa-item-meta" style="margin-top:5px">
+              <span class="usa-tag usa-tag-fda">FAERS</span>
+              <span>${item.date}${item.country ? ' · ' + item.country : ''}</span>
+            </div>
+          </div>`;
       }).filter(Boolean).join('')
-    : '<div style="padding:24px 16px;text-align:center;color:var(--text3);font-size:12px">Loading adverse event reports…</div>';
-  const footer = `<div style="padding:8px 14px;font-size:10px;color:var(--text3);border-top:1px solid var(--border);line-height:1.5">Source: FDA FAERS. Serious reports only. Submissions are unverified — causality not established by FDA.</div>`;
-  return `<div class="usa-col">
-    <div class="usa-col-header">
-      <span class="usa-col-icon" style="background:#fee2e2">⚠️</span>
-      <div><div class="usa-col-title">Adverse Events</div>
-      <div class="usa-col-sub">FAERS · Serious · Recent</div></div>
-    </div>
-    <div class="usa-col-body">${rows}${footer}</div>
-  </div>`;
+    : '<div style="padding:16px;font-size:12px;color:var(--text3)">Loading adverse event reports…</div>';
+
+  const footer = `<div style="padding:8px 14px 10px;font-size:10px;color:var(--text3);line-height:1.5;border-top:1px solid var(--border)">
+    FDA FAERS serious reports. Unverified submissions — causality not established.</div>`;
+
+  return `
+    <div class="usa-col">
+      <div class="usa-col-header">
+        <div class="usa-col-icon" style="background:#fee2e2;font-size:16px">⚠️</div>
+        <div>
+          <div class="usa-col-name">Adverse Events</div>
+          <div class="usa-col-sub">FAERS · Serious · Recent</div>
+        </div>
+      </div>
+      <div class="usa-items" id="usa-items-ae">${rows}${footer}</div>
+    </div>`;
 }
 
 function renderUSALive() {
