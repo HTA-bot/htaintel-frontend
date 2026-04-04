@@ -2876,10 +2876,18 @@ function drawIRP() {
   const canvas = document.getElementById('irpCanvas');
   if (!canvas) return;
   const wrap = canvas.parentElement;
-  canvas.width  = wrap.clientWidth  || 800;
-  canvas.height = wrap.clientHeight || 500;
-  const W = canvas.width, H = canvas.height;
+  const dpr  = window.devicePixelRatio || 1;
+  const cssW = wrap.clientWidth  || 800;
+  const cssH = wrap.clientHeight || 500;
+  // Set canvas backing store at physical resolution
+  canvas.width  = cssW * dpr;
+  canvas.height = cssH * dpr;
+  // Keep CSS display size unchanged
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  const W = cssW, H = cssH;
   const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);   // scale all drawing to physical pixels
   ctx.clearRect(0, 0, W, H);
 
   const visibleNodes = irpNodes.filter(n => irpSelectedCountries.has(n.id));
@@ -5662,11 +5670,7 @@ setTimeout(() => {
 
 window.addEventListener('resize', () => {
   if (document.getElementById('panel-irp').classList.contains('active') && irpView === 'network') {
-    const canvas = document.getElementById('irpCanvas');
-    const wrap = canvas.parentElement;
-    canvas.width = wrap.clientWidth;
-    canvas.height = wrap.clientHeight;
-    drawIRP();
+    drawIRP(); // drawIRP handles DPR scaling itself
   }
 });
 
