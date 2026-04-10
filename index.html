@@ -6514,7 +6514,7 @@ async function loadDrugProfile(inn) {
   document.getElementById('drugProfileStats').style.display = 'none';
 
   try {
-    const url = BACKEND_URL + '/feed?inn=' + encodeURIComponent(_drugProfileINN) + '&limit=200&sort=date';
+    const url = BACKEND_URL + '/drug?inn=' + encodeURIComponent(_drugProfileINN) + '&limit=1000';
     const data = await fetch(url).then(r => r.json());
     _drugProfileItems = data.items || [];
     renderDrugProfile();
