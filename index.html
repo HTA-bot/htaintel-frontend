@@ -2011,6 +2011,9 @@ body {
       <div class="nav-item" data-tab="precedents" onclick="switchTab(this)">
         <span class="nav-icon">🔍</span> Precedents
       </div>
+      <div class="nav-item" data-tab="drug" onclick="switchTab(this)">
+        <span class="nav-icon">💊</span> Drug Profile
+      </div>
       <div class="nav-item" data-tab="calendar" onclick="switchTab(this)">
         <span class="nav-icon">📅</span> Calendar
       </div>
@@ -2628,6 +2631,56 @@ body {
           <div id="calGrid" style="display:flex;flex-direction:column;gap:4px"></div>
         </div>
       </div>
+
+      <!-- ── DRUG PROFILE PANEL ── -->
+      <div class="panel" id="panel-drug" style="overflow-y:auto;">
+        <div style="padding:20px;max-width:1100px;margin:0 auto">
+
+          <!-- Header + Search -->
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+            <h2 style="margin:0;font-size:18px;font-weight:700">Drug Profile</h2>
+            <div style="position:relative;flex:1;min-width:220px;max-width:420px">
+              <input id="drugProfileSearch"
+                placeholder="Search drug or INN e.g. pembrolizumab"
+                style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;
+                       font-size:13px;background:var(--surface);color:var(--text);box-sizing:border-box"
+                oninput="onDrugProfileInput(this.value)"
+                onkeydown="if(event.key==='Enter')loadDrugProfile(this.value.trim())">
+              <div id="drugProfileSugg"
+                style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);
+                       border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);
+                       z-index:9999;max-height:240px;overflow-y:auto;margin-top:2px"></div>
+            </div>
+            <button onclick="loadDrugProfile(document.getElementById('drugProfileSearch').value.trim())"
+              style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+                     font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">
+              Search
+            </button>
+          </div>
+          <p style="margin:0 0 16px;color:var(--muted);font-size:12px">
+            Global HTA decisions for a single drug — filtered by your sidebar selection.
+          </p>
+
+          <!-- Active drug + filter badge -->
+          <div id="drugProfileBadge" style="display:none;margin-bottom:14px;display:flex;
+               align-items:center;gap:8px;flex-wrap:wrap">
+            <span id="drugProfileName"
+              style="font-size:15px;font-weight:700;color:var(--text)"></span>
+            <span id="drugProfileFilter"
+              style="font-size:11px;padding:2px 8px;border-radius:10px;
+                     background:var(--surface2);color:var(--muted)"></span>
+            <span id="drugProfileCount"
+              style="font-size:11px;color:var(--muted)"></span>
+          </div>
+
+          <!-- Stats bar -->
+          <div id="drugProfileStats" style="display:none;margin-bottom:16px"></div>
+
+          <!-- Results -->
+          <div id="drugProfileResults"></div>
+        </div>
+      </div>
+
 </main>
   </div>
 </div>
@@ -5070,6 +5123,12 @@ function closeUserMenu() {
 }
 
 document.addEventListener('click', e => {
+  // Close drug profile suggestions on outside click
+  if (!e.target.closest('#drugProfileSearch') && !e.target.closest('#drugProfileSugg')) {
+    const s = document.getElementById('drugProfileSugg');
+    if (s) s.style.display = 'none';
+  }
+
   if (!e.target.closest('#userDropdown') && !e.target.closest('#userAvatarBtn'))
     closeUserMenu();
 });
@@ -6383,6 +6442,256 @@ async function restoreSession() {
   return false;
 }
 
+
+// ── DRUG PROFILE ──────────────────────────────────────────────────────────
+let _drugProfileINN      = '';
+let _drugProfileItems    = [];
+let _drugSuggDebounce    = null;
+
+const OUTCOME_LABEL = {
+  positive_major:           '★★★ Major',
+  positive_considerable:    '★★ Considerable',
+  positive_minor:           '★ Minor',
+  positive_nonquantifiable: '★ Non-quant.',
+  positive:                 'Positive',
+  negative:                 '✗ Negative',
+  restricted:               '◑ Restricted',
+  consultation:             '◎ Consultation',
+  guidance:                 'Guidance',
+};
+const OUTCOME_COLOR = {
+  positive_major:           '#d1fae5', positive_considerable: '#d1fae5',
+  positive_minor:           '#ecfdf5', positive_nonquantifiable: '#ecfdf5',
+  positive:                 '#dbeafe', negative: '#fee2e2',
+  restricted:               '#fef3c7', consultation: '#ede9fe',
+  guidance:                 '#f1f5f9',
+};
+const OUTCOME_TEXT = {
+  positive_major:           '#065f46', positive_considerable: '#065f46',
+  positive_minor:           '#065f46', positive_nonquantifiable: '#065f46',
+  positive:                 '#1e40af', negative: '#991b1b',
+  restricted:               '#92400e', consultation: '#5b21b6',
+  guidance:                 '#475569',
+};
+
+async function onDrugProfileInput(val) {
+  clearTimeout(_drugSuggDebounce);
+  const sugg = document.getElementById('drugProfileSugg');
+  if (!val || val.length < 2) { if (sugg) sugg.style.display = 'none'; return; }
+  _drugSuggDebounce = setTimeout(async () => {
+    try {
+      const data = await fetch(BACKEND_URL + '/stats/inns?q=' + encodeURIComponent(val) + '&limit=12').then(r=>r.json());
+      if (!data.length) { sugg.style.display = 'none'; return; }
+      sugg.innerHTML = data.map(d =>
+        `<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+              onmouseover="this.style.background='var(--surface2)'"
+              onmouseout="this.style.background=''"
+              onclick="document.getElementById('drugProfileSearch').value='${d.inn}';
+                       document.getElementById('drugProfileSugg').style.display='none';
+                       loadDrugProfile('${d.inn}')">
+          <span style="font-weight:500">${d.inn}</span>
+          <span style="color:var(--muted);font-size:11px;float:right">${d.count} decision${d.count!==1?'s':''}</span>
+        </div>`
+      ).join('');
+      sugg.style.display = 'block';
+    } catch(e) { sugg.style.display = 'none'; }
+  }, 220);
+}
+
+async function loadDrugProfile(inn) {
+  if (!inn) return;
+  const sugg = document.getElementById('drugProfileSugg');
+  if (sugg) sugg.style.display = 'none';
+
+  _drugProfileINN = inn.toLowerCase().trim();
+  document.getElementById('drugProfileSearch').value = inn;
+
+  // Show loading state
+  const resultsEl = document.getElementById('drugProfileResults');
+  resultsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">Loading decisions…</div>';
+  document.getElementById('drugProfileStats').style.display = 'none';
+
+  try {
+    const url = BACKEND_URL + '/feed?inn=' + encodeURIComponent(_drugProfileINN) + '&limit=200&sort=date';
+    const data = await fetch(url).then(r => r.json());
+    _drugProfileItems = data.items || [];
+    renderDrugProfile();
+  } catch(e) {
+    resultsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Failed to load decisions.</div>';
+  }
+}
+
+function getDrugProfileFilteredItems() {
+  let items = _drugProfileItems;
+  if (!items.length) return items;
+
+  // Apply sidebar filter
+  const g = currentGroupFilter;
+  if (g === 'all') return items;
+
+  if (g === 'irp') return items.filter(i => i.irp);
+
+  if (g === 'watchlist') {
+    const starred = new Set((_allFeedItems||[]).filter(i=>i.star).map(i=>i.id));
+    return items.filter(i => starred.has(i.id));
+  }
+
+  // Body filter (individual body clicked in sidebar)
+  if (_activeBodyFilter) return items.filter(i => i.body === _activeBodyFilter);
+
+  // Group filter
+  const region = GROUP_REGIONS[g];
+  if (region) return items.filter(i => i.region === region);
+
+  // GROUP_BODIES lookup
+  const groupBodies = GROUP_BODIES[g] || [];
+  if (groupBodies.length) return items.filter(i => groupBodies.includes(i.body));
+
+  return items;
+}
+
+function renderDrugProfile() {
+  const items   = getDrugProfileFilteredItems();
+  const allItems = _drugProfileItems;
+  const inn     = _drugProfileINN;
+
+  // Badge
+  const badge  = document.getElementById('drugProfileBadge');
+  const nameEl = document.getElementById('drugProfileName');
+  const filtEl = document.getElementById('drugProfileFilter');
+  const cntEl  = document.getElementById('drugProfileCount');
+  badge.style.display = 'flex';
+  nameEl.textContent  = inn.charAt(0).toUpperCase() + inn.slice(1);
+
+  const g = currentGroupFilter;
+  const filterLabel = _activeBodyFilter ? _activeBodyFilter
+    : g === 'all' ? 'All bodies'
+    : g === 'eu' ? 'European Union'
+    : g === 'g7' ? 'G7 Nations'
+    : g === 'irp' ? 'IRP Reference Set'
+    : g === 'latam' ? 'Latin America'
+    : g === 'ap' ? 'Asia Pacific'
+    : g === 'mideast' ? 'Middle East'
+    : g === 'watchlist' ? 'Watchlist'
+    : g;
+  filtEl.textContent = filterLabel;
+  cntEl.textContent  = `${items.length} of ${allItems.length} decisions`;
+
+  // Stats bar
+  const statsEl = document.getElementById('drugProfileStats');
+  if (items.length) {
+    const pos = items.filter(i => (i.outcome||'').startsWith('positive') || i.outcome === 'positive').length;
+    const neg = items.filter(i => i.outcome === 'negative').length;
+    const irpCount = items.filter(i => i.irp).length;
+    const bodies  = [...new Set(items.map(i => i.body))].length;
+    const posRate = items.length ? Math.round((pos/items.length)*100) : 0;
+    statsEl.style.display = 'flex';
+    statsEl.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px';
+    statsEl.innerHTML = [
+      ['Decisions', items.length, '#4f46e5'],
+      ['Positive', pos + ' (' + posRate + '%)', '#059669'],
+      ['Negative', neg, '#dc2626'],
+      ['IRP-linked', irpCount, '#7c3aed'],
+      ['Bodies', bodies, '#0891b2'],
+    ].map(([label, val, color]) => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;
+                  padding:10px 16px;flex:1;min-width:100px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:${color}">${val}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${label}</div>
+      </div>`
+    ).join('');
+  } else {
+    statsEl.style.display = 'none';
+  }
+
+  // Results
+  const resultsEl = document.getElementById('drugProfileResults');
+  if (!items.length) {
+    resultsEl.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">
+      No decisions found for <strong>${inn}</strong> in the selected filter.<br>
+      <span style="font-size:11px">Try "All Bodies" in the sidebar to see the full global picture.</span>
+    </div>`;
+    return;
+  }
+
+  // Group by body for timeline view
+  const byBody = {};
+  items.forEach(item => {
+    const b = item.body || 'Unknown';
+    if (!byBody[b]) byBody[b] = [];
+    byBody[b].push(item);
+  });
+
+  // Sort bodies: positive first, then by count
+  const sortedBodies = Object.entries(byBody).sort((a, b) => {
+    const aPos = a[1].filter(i => (i.outcome||'').startsWith('positive')).length;
+    const bPos = b[1].filter(i => (i.outcome||'').startsWith('positive')).length;
+    if (bPos !== aPos) return bPos - aPos;
+    return b[1].length - a[1].length;
+  });
+
+  resultsEl.innerHTML = sortedBodies.map(([body, decisions]) => {
+    const flag = decisions[0]?.flag || '🌐';
+    const latestOutcome = decisions[0]?.outcome || '';
+    const ocColor = OUTCOME_COLOR[latestOutcome] || '#f1f5f9';
+    const ocText  = OUTCOME_TEXT[latestOutcome]  || '#475569';
+
+    const decisionCards = decisions.map(d => {
+      const oc      = d.outcome || d.tag || '';
+      const ocLabel = OUTCOME_LABEL[oc] || oc;
+      const bg      = OUTCOME_COLOR[oc] || '#f1f5f9';
+      const tx      = OUTCOME_TEXT[oc]  || '#475569';
+      const date    = (d.timestamp||'').slice(0,10) || d.time || '';
+      return `
+        <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer"
+           style="display:block;padding:10px 12px;border:1px solid var(--border);border-radius:7px;
+                  background:var(--surface);text-decoration:none;color:inherit;
+                  transition:border-color .15s;margin-bottom:6px"
+           onmouseover="this.style.borderColor='var(--accent)'"
+           onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;
+                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${d.title||''}
+          </div>
+          ${d.summary ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px;
+                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.summary}</div>` : ''}
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+            <span style="font-size:10px;padding:2px 7px;border-radius:4px;
+                         background:${bg};color:${tx};font-weight:600">${ocLabel}</span>
+            ${d.irp ? '<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#ede9fe;color:#7c3aed;font-weight:600">IRP</span>' : ''}
+            ${d.ta && d.ta !== 'other' ? `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--muted)">${d.ta.replace(/_/g,' ')}</span>` : ''}
+            <span style="font-size:10px;color:var(--muted);margin-left:auto">${date}</span>
+          </div>
+        </a>`;
+    }).join('');
+
+    return `
+      <div style="margin-bottom:16px;border:1px solid var(--border);border-radius:10px;
+                  overflow:hidden;background:var(--surface)">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;
+                    background:${ocColor};border-bottom:1px solid var(--border)">
+          <span style="font-size:20px">${flag}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px;color:var(--text)">${body}</div>
+            <div style="font-size:11px;color:${ocText};font-weight:500">
+              ${decisions.length} decision${decisions.length!==1?'s':''} · Latest: ${OUTCOME_LABEL[latestOutcome]||latestOutcome||'—'}
+            </div>
+          </div>
+          ${decisions[0]?.irp ? '<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#ede9fe;color:#7c3aed;font-weight:700">IRP</span>' : ''}
+        </div>
+        <div style="padding:10px">${decisionCards}</div>
+      </div>`;
+  }).join('');
+}
+
+// Called by sidebar when group/body filter changes — re-render if drug profile is active
+function refreshDrugProfileIfActive() {
+  const panel = document.getElementById('panel-drug');
+  if (panel && panel.classList.contains('active') && _drugProfileINN) {
+    renderDrugProfile();
+  }
+}
+
 function clearPrecedentFilters() {
   ['prec-inn','prec-ta','prec-body','prec-outcome','prec-days'].forEach(id => {
     const el = document.getElementById(id);
@@ -6630,6 +6939,9 @@ document.addEventListener('click', e => {
   </button>
   <button class="mob-nav-item" data-tab="calendar" onclick="mobNav('calendar',this)">
     <span class="mn-icon">📅</span>Calendar
+  </button>
+  <button class="mob-nav-item" data-tab="drug" onclick="mobNav('drug',this)">
+    <span class="mn-icon">💊</span>Drug
   </button>
   <button class="mob-nav-item" id="mobMoreBtn" onclick="toggleSidebar()">
     <span class="mn-icon">☰</span>More
