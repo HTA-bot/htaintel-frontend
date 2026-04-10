@@ -3375,6 +3375,7 @@ function setGroup(g, el) {
   } else {
     fetchAndRenderFeed();
   }
+  refreshDrugProfileIfActive();
 }
 
 let currentGroupFilter = 'all';
@@ -3630,6 +3631,7 @@ function selectBodyFilter(body) {
   _activeBodyFilter = (_activeBodyFilter === body) ? null : (body || null);
   renderSidebarBodyList();
   fetchAndRenderFeed();
+  refreshDrugProfileIfActive();
 }
 
 let starredIds = new Set(JSON.parse(localStorage.getItem('htaintel_starred') || '[]'));
