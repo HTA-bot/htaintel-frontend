@@ -1729,6 +1729,168 @@ body {
   #mobileNav     { display: none !important; }
   #sbBackdrop    { display: none !important; }
 }
+
+/* ── Drug Profile: collapsible body groups & enhanced cards ── */
+.dp-source {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  align-self: center;
+}
+.dp-source-full {
+  background: #1a3a1a;
+  color: #4ade80;
+}
+.dp-source-cache {
+  background: #3a2a1a;
+  color: #fbbf24;
+}
+
+.dp-body-group {
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.dp-body-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background .12s;
+}
+.dp-body-header:hover {
+  background: var(--surface2);
+}
+.dp-body-flag { font-size: 1.15rem; }
+.dp-body-name { font-weight: 600; flex: 1; font-size: 14px; }
+.dp-body-count {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.dp-body-chevron {
+  font-size: 0.85rem;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.dp-body-items {
+  padding: 0.25rem 0;
+}
+.dp-body-items.dp-collapsed {
+  display: none;
+}
+
+.dp-item {
+  display: block;
+  padding: 10px 12px;
+  text-decoration: none;
+  color: inherit;
+  border-top: 1px solid var(--border);
+  transition: background .12s;
+}
+.dp-item:hover {
+  background: var(--surface2);
+}
+.dp-item-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.dp-outcome-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.dp-outcome-positive   { background: #d1fae5; color: #065f46; }
+.dp-outcome-negative   { background: #fee2e2; color: #991b1b; }
+.dp-outcome-restricted { background: #fef3c7; color: #92400e; }
+.dp-outcome-consult    { background: #ede9fe; color: #5b21b6; }
+.dp-outcome-guidance   { background: #f1f5f9; color: #475569; }
+.dp-outcome-unknown    { background: var(--surface2); color: var(--muted); }
+
+.dp-irp-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #ede9fe;
+  color: #7c3aed;
+  font-weight: 700;
+}
+.dp-tag-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--surface2);
+  color: var(--muted);
+}
+.dp-date {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+}
+.dp-item-title {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dp-item-summary {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dp-stats-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.dp-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex: 1;
+  min-width: 90px;
+  text-align: center;
+}
+.dp-stat-num {
+  font-size: 22px;
+  font-weight: 700;
+}
+.dp-stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.dp-load-more-btn {
+  display: inline-block;
+  padding: 8px 24px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 12px 0;
+}
+.dp-load-more-btn:hover { opacity: .85; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -2678,6 +2840,9 @@ body {
 
           <!-- Results -->
           <div id="drugProfileResults"></div>
+
+          <!-- Load More -->
+          <div id="drugLoadMoreWrap" style="display:none;text-align:center;padding:8px 0 16px"></div>
         </div>
       </div>
 
@@ -6445,10 +6610,14 @@ async function restoreSession() {
 }
 
 
-// ── DRUG PROFILE ──────────────────────────────────────────────────────────
+// ── DRUG PROFILE (v2 — pagination, collapsible groups, source indicator) ─────
 let _drugProfileINN      = '';
 let _drugProfileItems    = [];
 let _drugSuggDebounce    = null;
+let _drugOffset          = 0;
+let _drugTotal           = 0;
+let _drugSource          = '';
+let _drugStats           = null;
 
 const OUTCOME_LABEL = {
   positive_major:           '★★★ Major',
@@ -6500,25 +6669,46 @@ async function onDrugProfileInput(val) {
   }, 220);
 }
 
-async function loadDrugProfile(inn) {
-  if (!inn) return;
+async function loadDrugProfile(inn, append) {
+  if (inn && typeof inn === 'string') {
+    _drugProfileINN = inn.toLowerCase().trim();
+    document.getElementById('drugProfileSearch').value = inn;
+  }
+  if (!_drugProfileINN) return;
+
   const sugg = document.getElementById('drugProfileSugg');
   if (sugg) sugg.style.display = 'none';
 
-  _drugProfileINN = inn.toLowerCase().trim();
-  document.getElementById('drugProfileSearch').value = inn;
-
-  // Show loading state
-  const resultsEl = document.getElementById('drugProfileResults');
-  resultsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">Loading decisions…</div>';
-  document.getElementById('drugProfileStats').style.display = 'none';
+  if (!append) {
+    _drugOffset = 0;
+    _drugProfileItems = [];
+    _drugStats = null;
+    _drugSource = '';
+    const resultsEl = document.getElementById('drugProfileResults');
+    resultsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">Searching all HTA decisions…</div>';
+    document.getElementById('drugProfileStats').style.display = 'none';
+    const lm = document.getElementById('drugLoadMoreWrap');
+    if (lm) lm.style.display = 'none';
+  }
 
   try {
-    const url = BACKEND_URL + '/drug?inn=' + encodeURIComponent(_drugProfileINN) + '&limit=1000';
+    const url = BACKEND_URL + '/drug?inn=' + encodeURIComponent(_drugProfileINN)
+      + '&limit=200&offset=' + _drugOffset;
     const data = await fetch(url).then(r => r.json());
-    _drugProfileItems = data.items || [];
+
+    _drugTotal  = data.total || 0;
+    _drugSource = data.source || _drugSource || 'cache';
+    const items = data.items || [];
+    _drugProfileItems = append ? _drugProfileItems.concat(items) : items;
+    _drugOffset += items.length;
+
+    if (!append && data.stats) _drugStats = data.stats;
+
     renderDrugProfile();
+    updateDrugLoadMoreButton();
   } catch(e) {
+    console.error('Drug profile fetch failed:', e);
+    const resultsEl = document.getElementById('drugProfileResults');
     resultsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Failed to load decisions.</div>';
   }
 }
@@ -6527,37 +6717,26 @@ function getDrugProfileFilteredItems() {
   let items = _drugProfileItems;
   if (!items.length) return items;
 
-  // Apply sidebar filter
   const g = currentGroupFilter;
   if (g === 'all') return items;
-
   if (g === 'irp') return items.filter(i => i.irp);
-
   if (g === 'watchlist') {
     const starred = new Set((_allFeedItems||[]).filter(i=>i.star).map(i=>i.id));
     return items.filter(i => starred.has(i.id));
   }
-
-  // Body filter (individual body clicked in sidebar)
   if (_activeBodyFilter) return items.filter(i => i.body === _activeBodyFilter);
-
-  // Group filter
   const region = GROUP_REGIONS[g];
   if (region) return items.filter(i => i.region === region);
-
-  // GROUP_BODIES lookup
   const groupBodies = GROUP_BODIES[g] || [];
   if (groupBodies.length) return items.filter(i => groupBodies.includes(i.body));
-
   return items;
 }
 
 function renderDrugProfile() {
-  const items   = getDrugProfileFilteredItems();
+  const items    = getDrugProfileFilteredItems();
   const allItems = _drugProfileItems;
-  const inn     = _drugProfileINN;
+  const inn      = _drugProfileINN;
 
-  // Badge
   const badge  = document.getElementById('drugProfileBadge');
   const nameEl = document.getElementById('drugProfileName');
   const filtEl = document.getElementById('drugProfileFilter');
@@ -6577,113 +6756,131 @@ function renderDrugProfile() {
     : g === 'watchlist' ? 'Watchlist'
     : g;
   filtEl.textContent = filterLabel;
-  cntEl.textContent  = `${items.length} of ${allItems.length} decisions`;
 
-  // Stats bar
+  const totalLabel = _drugTotal ? _drugTotal : allItems.length;
+  cntEl.textContent = items.length + ' of ' + totalLabel + ' decisions';
+
+  const sourceTag = _drugSource === 'supabase'
+    ? '<span class="dp-source dp-source-full">Full history</span>'
+    : _drugSource === 'cache'
+    ? '<span class="dp-source dp-source-cache">Recent only</span>'
+    : '';
+
   const statsEl = document.getElementById('drugProfileStats');
   if (items.length) {
-    const pos = items.filter(i => (i.outcome||'').startsWith('positive') || i.outcome === 'positive').length;
-    const neg = items.filter(i => i.outcome === 'negative').length;
-    const irpCount = items.filter(i => i.irp).length;
-    const bodies  = [...new Set(items.map(i => i.body))].length;
-    const posRate = items.length ? Math.round((pos/items.length)*100) : 0;
-    statsEl.style.display = 'flex';
-    statsEl.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px';
+    const s   = _drugStats || {};
+    const pos = s.total_positive != null ? s.total_positive
+      : items.filter(i => (i.outcome||'').startsWith('positive')).length;
+    const neg = s.total_negative != null ? s.total_negative
+      : items.filter(i => i.outcome === 'negative').length;
+    const irpCount = s.total_irp != null ? s.total_irp
+      : items.filter(i => i.irp).length;
+    const bodies = s.total_bodies != null ? s.total_bodies
+      : [...new Set(items.map(i => i.body))].length;
+    const posRate = s.positive_rate != null ? s.positive_rate
+      : (items.length ? Math.round((pos / items.length) * 100) : 0);
+
+    statsEl.style.display = '';
+    statsEl.className = 'dp-stats-bar';
     statsEl.innerHTML = [
-      ['Decisions', items.length, '#4f46e5'],
+      ['Decisions', s.total_decisions || totalLabel, '#4f46e5'],
       ['Positive', pos + ' (' + posRate + '%)', '#059669'],
       ['Negative', neg, '#dc2626'],
       ['IRP-linked', irpCount, '#7c3aed'],
       ['Bodies', bodies, '#0891b2'],
-    ].map(([label, val, color]) => `
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;
-                  padding:10px 16px;flex:1;min-width:100px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:${color}">${val}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${label}</div>
-      </div>`
-    ).join('');
+    ].map(function(arr) {
+      return '<div class="dp-stat-card"><div class="dp-stat-num" style="color:' + arr[2] + '">' + arr[1] + '</div><div class="dp-stat-label">' + arr[0] + '</div></div>';
+    }).join('') + sourceTag;
   } else {
     statsEl.style.display = 'none';
   }
 
-  // Results
   const resultsEl = document.getElementById('drugProfileResults');
   if (!items.length) {
-    resultsEl.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">
-      No decisions found for <strong>${inn}</strong> in the selected filter.<br>
-      <span style="font-size:11px">Try "All Bodies" in the sidebar to see the full global picture.</span>
-    </div>`;
+    resultsEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px">No decisions found for <strong>' + inn + '</strong> in the selected filter.<br><span style="font-size:11px">Try "All Bodies" in the sidebar to see the full global picture.</span></div>';
     return;
   }
 
-  // Group by body for timeline view
   const byBody = {};
-  items.forEach(item => {
+  items.forEach(function(item) {
     const b = item.body || 'Unknown';
     if (!byBody[b]) byBody[b] = [];
     byBody[b].push(item);
   });
 
-  // Sort bodies: positive first, then by count
-  const sortedBodies = Object.entries(byBody).sort((a, b) => {
-    const aPos = a[1].filter(i => (i.outcome||'').startsWith('positive')).length;
-    const bPos = b[1].filter(i => (i.outcome||'').startsWith('positive')).length;
+  const sortedBodies = Object.entries(byBody).sort(function(a, b) {
+    const aPos = a[1].filter(function(i) { return (i.outcome||'').startsWith('positive'); }).length;
+    const bPos = b[1].filter(function(i) { return (i.outcome||'').startsWith('positive'); }).length;
     if (bPos !== aPos) return bPos - aPos;
     return b[1].length - a[1].length;
   });
 
-  resultsEl.innerHTML = sortedBodies.map(([body, decisions]) => {
-    const flag = decisions[0]?.flag || '🌐';
-    const latestOutcome = decisions[0]?.outcome || '';
-    const ocColor = OUTCOME_COLOR[latestOutcome] || '#f1f5f9';
-    const ocText  = OUTCOME_TEXT[latestOutcome]  || '#475569';
+  resultsEl.innerHTML = sortedBodies.map(function(entry) {
+    const body = entry[0];
+    const decisions = entry[1];
+    const flag = (decisions[0] && decisions[0].flag) || '🌐';
+    const latestOutcome = (decisions[0] && decisions[0].outcome) || '';
+    const ocLabel = OUTCOME_LABEL[latestOutcome] || latestOutcome || '—';
 
-    const decisionCards = decisions.map(d => {
-      const oc      = d.outcome || d.tag || '';
-      const ocLabel = OUTCOME_LABEL[oc] || oc;
-      const bg      = OUTCOME_COLOR[oc] || '#f1f5f9';
-      const tx      = OUTCOME_TEXT[oc]  || '#475569';
-      const date    = (d.timestamp||'').slice(0,10) || d.time || '';
-      return `
-        <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer"
-           style="display:block;padding:10px 12px;border:1px solid var(--border);border-radius:7px;
-                  background:var(--surface);text-decoration:none;color:inherit;
-                  transition:border-color .15s;margin-bottom:6px"
-           onmouseover="this.style.borderColor='var(--accent)'"
-           onmouseout="this.style.borderColor='var(--border)'">
-          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;
-                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-            ${d.title||''}
-          </div>
-          ${d.summary ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px;
-                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.summary}</div>` : ''}
-          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
-            <span style="font-size:10px;padding:2px 7px;border-radius:4px;
-                         background:${bg};color:${tx};font-weight:600">${ocLabel}</span>
-            ${d.irp ? '<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#ede9fe;color:#7c3aed;font-weight:600">IRP</span>' : ''}
-            ${d.ta && d.ta !== 'other' ? `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--muted)">${d.ta.replace(/_/g,' ')}</span>` : ''}
-            <span style="font-size:10px;color:var(--muted);margin-left:auto">${date}</span>
-          </div>
-        </a>`;
+    decisions.sort(function(a, b) { return (b.timestamp || '').localeCompare(a.timestamp || ''); });
+
+    const decisionCards = decisions.map(function(d) {
+      const oc    = d.outcome || d.tag || '';
+      const label = OUTCOME_LABEL[oc] || oc || '—';
+      const bg    = OUTCOME_COLOR[oc] || '#f1f5f9';
+      const tx    = OUTCOME_TEXT[oc]  || '#475569';
+      const date  = d.timestamp ? new Date(d.timestamp).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : (d.time || '');
+      const summary = d.summary && d.summary.length > 200 ? d.summary.slice(0, 200).trim() + '…' : (d.summary || '');
+
+      return '<a href="' + (d.link||'#') + '" target="_blank" rel="noopener noreferrer" class="dp-item">' +
+        '<div class="dp-item-top">' +
+          '<span class="dp-outcome-badge" style="background:' + bg + ';color:' + tx + '">' + label + '</span>' +
+          (d.irp ? '<span class="dp-irp-badge">IRP</span>' : '') +
+          (d.ta && d.ta !== 'other' ? '<span class="dp-tag-badge">' + d.ta.replace(/_/g,' ') + '</span>' : '') +
+          '<span class="dp-date">' + date + '</span>' +
+        '</div>' +
+        '<div class="dp-item-title">' + (d.title||'') + '</div>' +
+        (summary ? '<div class="dp-item-summary">' + summary + '</div>' : '') +
+      '</a>';
     }).join('');
 
-    return `
-      <div style="margin-bottom:16px;border:1px solid var(--border);border-radius:10px;
-                  overflow:hidden;background:var(--surface)">
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;
-                    background:${ocColor};border-bottom:1px solid var(--border)">
-          <span style="font-size:20px">${flag}</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:14px;color:var(--text)">${body}</div>
-            <div style="font-size:11px;color:${ocText};font-weight:500">
-              ${decisions.length} decision${decisions.length!==1?'s':''} · Latest: ${OUTCOME_LABEL[latestOutcome]||latestOutcome||'—'}
-            </div>
-          </div>
-          ${decisions[0]?.irp ? '<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#ede9fe;color:#7c3aed;font-weight:700">IRP</span>' : ''}
-        </div>
-        <div style="padding:10px">${decisionCards}</div>
-      </div>`;
+    return '<div class="dp-body-group">' +
+      '<div class="dp-body-header" onclick="toggleDrugBodyGroup(this)">' +
+        '<span class="dp-body-flag">' + flag + '</span>' +
+        '<span class="dp-body-name">' + body + '</span>' +
+        '<span class="dp-body-count">' + decisions.length + ' decision' + (decisions.length!==1?'s':'') + ' · Latest: ' + ocLabel + '</span>' +
+        ((decisions[0] && decisions[0].irp) ? '<span class="dp-irp-badge">IRP</span>' : '') +
+        '<span class="dp-body-chevron">▾</span>' +
+      '</div>' +
+      '<div class="dp-body-items">' + decisionCards + '</div>' +
+    '</div>';
   }).join('');
+}
+
+// ── Collapsible body groups ──
+function toggleDrugBodyGroup(headerEl) {
+  const items   = headerEl.nextElementSibling;
+  const chevron = headerEl.querySelector('.dp-body-chevron');
+  if (items.classList.contains('dp-collapsed')) {
+    items.classList.remove('dp-collapsed');
+    chevron.textContent = '▾';
+  } else {
+    items.classList.add('dp-collapsed');
+    chevron.textContent = '▸';
+  }
+}
+
+// ── Load More button ──
+function updateDrugLoadMoreButton() {
+  const wrap = document.getElementById('drugLoadMoreWrap');
+  if (!wrap) return;
+  const remaining = _drugTotal - _drugOffset;
+  if (remaining > 0) {
+    wrap.style.display = 'block';
+    wrap.innerHTML = '<button class="dp-load-more-btn" onclick="loadDrugProfile(null, true)">Load more (' + remaining + ' remaining)</button>';
+  } else {
+    wrap.style.display = 'none';
+  }
 }
 
 // Called by sidebar when group/body filter changes — re-render if drug profile is active
