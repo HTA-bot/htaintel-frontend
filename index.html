@@ -3530,7 +3530,7 @@ function setGroup(g, el) {
     } else if (g === 'mideast') {
       shouldCheck = ['SFDA Saudi'].some(b => name.includes(b));
     } else if (g === 'ap') {
-      shouldCheck = ['PBAC','ACE','PMDA','PHARMAC','NMPA China'].some(b => name.includes(b));
+      shouldCheck = ['PBAC','ACE','PMDA','PHARMAC','NMPA China','MFDS Korea','HIRA Korea'].some(b => name.includes(b));
     }
     shouldCheck ? check.classList.add('checked') : check.classList.remove('checked');
   });
@@ -3560,7 +3560,7 @@ const GROUP_REGIONS = {
 const GROUP_BODIES = {
   eu:      ['EMA / EUHA','EMA','EUHA','EUnetHTA','CHMP','NICE','IQWiG / G-BA','SMC'],
   g7:      ['NICE','IQWiG','G-BA','HAS','AIFA','PMDA','Health Canada','FDA','CMS','IQWiG / G-BA'],
-  ap:      ['PBAC','ACE','PMDA','PHARMAC','NMPA China'],
+  ap:      ['PBAC','ACE','PMDA','PHARMAC','NMPA China','MFDS Korea','HIRA Korea'],
   latam:   ['IETS Colombia','DIGEMID Peru','ISP Chile','ARCSA Ecuador','DINAVISA Paraguay','ANVISA Brazil','ANMAT Argentina'],
   mideast: ['SFDA Saudi'],
 };
@@ -5234,7 +5234,7 @@ function showGroupFilterBadge(group) {
     eu:      '🇪🇺 European Union — EMA / EUHA decisions',
     irp:     '⬡ IRP Reference Set — IRP-sensitive decisions only',
     g7:      '★ G7 Nations — Major HTA bodies only',
-    ap:      '🌏 Asia Pacific — PBAC, ACE, PMDA, PHARMAC, NMPA China',
+    ap:      '🌏 Asia Pacific — PBAC, ACE, PMDA, PHARMAC, NMPA China, MFDS, HIRA',
     latam:   '🌎 Latin America — ANVISA, ANMAT, and regional bodies',
     mideast: '🌍 Middle East — SFDA Saudi Arabia',
   };
@@ -6040,7 +6040,7 @@ async function updateGroupCounts() {
     setCount('grp-count-irp',     stats.irp_impacted || '--');
     setCount('grp-count-eu',      sumBodies(['EMA','NICE','IQWiG','SMC','HAS','ZIN','NCPE','KCE','TLV','MHRA','Swissmedic','INFARMED','HIQA']));
     setCount('grp-count-g7',      sumBodies(['NICE','HAS','IQWiG','PMDA','Health Canada','FDA','CMS']));
-    setCount('grp-count-ap',      sumBodies(['PBAC','ACE','PMDA','PHARMAC','NMPA China']));
+    setCount('grp-count-ap',      sumBodies(['PBAC','ACE','PMDA','PHARMAC','NMPA China','MFDS Korea','HIRA Korea']));
     setCount('grp-count-latam',   sumBodies(['ANVISA Brazil','ANMAT Argentina','IETS Colombia','DIGEMID Peru','ISP Chile','ARCSA Ecuador','DINAVISA Paraguay']));
     setCount('grp-count-mideast', sumBodies(['SFDA Saudi']));
   } catch(e) { console.warn('updateGroupCounts:', e); }
