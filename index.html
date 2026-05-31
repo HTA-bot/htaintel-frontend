@@ -483,6 +483,31 @@ body {
 .feed-list::-webkit-scrollbar { width: 3px; }
 .feed-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
+.fc-why { font-size:12px; color:var(--text2); background:var(--accent-lt);
+  border:1px solid var(--accent-md); border-radius:8px; padding:6px 9px; margin-top:6px; line-height:1.4; }
+
+.dp-meta{font-size:12px;color:var(--text2);margin-bottom:6px}
+.dp-sec{padding:13px 0;border-bottom:1px solid var(--border)}
+.dp-lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:8px;font-weight:600}
+.dp-lbl.dp-ok{color:var(--green)}
+.dp-what{font-size:15px;line-height:1.5}
+.dp-facts{display:flex;flex-wrap:wrap;gap:7px}
+.fact{font-size:12px;padding:4px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.fact b{color:var(--text)} .fact.irp{border-color:var(--purple-lt);background:var(--purple-lt);color:var(--purple)}
+.dp-xrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.dp-xrow:last-child{border-bottom:none}
+.dp-out{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--surface3);color:var(--text2)}
+.dp-ai{background:var(--purple-lt);border:1px solid #d9cef7;border-radius:10px;padding:13px 14px;position:relative;margin-top:2px}
+.dp-ai-tag{position:absolute;top:-9px;left:12px;font-size:10px;padding:1px 8px;border-radius:999px;background:var(--purple);color:#fff}
+.dp-ai p{margin:4px 0 0;line-height:1.55;font-size:13.5px;color:#3b2f5e}
+.dp-src{font-size:13px;color:var(--text2);line-height:1.5;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:11px 13px}
+.dp-muted{color:var(--text3);font-size:13px}
+.dp-actions{display:flex;gap:10px;padding-top:14px}
+.dp-btn{flex:1;text-align:center;padding:10px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
+.dp-btn.primary{background:var(--accent);color:#fff;border:none} .dp-btn.ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
+.dp-shimmer{opacity:.5}
+@keyframes dpsh{50%{opacity:.25}} .dp-shimmer{animation:dpsh 1.2s ease-in-out infinite}
+
 .feed-card {
   display: block;
   text-decoration: none;
@@ -2266,6 +2291,16 @@ body {
     </div>
   </div>
 
+  <div class="modal-backdrop" id="decisionPanel" onclick="closeDecisionOnBackdrop(event)" style="display:none">
+    <div class="modal" style="max-width:560px;max-height:88vh;overflow-y:auto">
+      <div class="modal-header">
+        <span class="modal-title" id="dpDrug">—</span>
+        <button class="modal-close" onclick="closeDecisionPanel()">✕</button>
+      </div>
+      <div class="modal-body" id="dpBody"></div>
+    </div>
+  </div>
+
   <!-- ── BODY ── -->
   <div class="body">
 
@@ -3614,6 +3649,51 @@ function showFeedError(msg) {
     </div>`;
 }
 
+let _synthObserver = null;
+
+async function warmSynthesis(ids) {
+  ids = (ids || []).filter(id => id && !window._synthMap[id]);
+  if (!ids.length) return;
+  try {
+    const r = await fetch(BACKEND_URL + '/synthesis?ids=' + encodeURIComponent(ids.join(',')));
+    if (!r.ok) return;
+    const { synthesis } = await r.json();
+    let changed = false;
+    for (const id in synthesis) { window._synthMap[id] = synthesis[id]; changed = true; }
+    if (changed) upgradeRenderedCards();
+  } catch (e) { /* silent — rule cards stay */ }
+}
+
+// Update headline + why text on already-rendered cards from _synthMap (no full re-render).
+function upgradeRenderedCards() {
+  document.querySelectorAll('.feed-card[data-id]').forEach(card => {
+    const s = window._synthMap[card.getAttribute('data-id')];
+    if (!s) return;
+    const titleEl = card.querySelector('.fc-title');
+    if (titleEl && s.headline) titleEl.textContent = s.headline;
+    let whyEl = card.querySelector('.fc-why');
+    if (s.why_it_matters) {
+      if (!whyEl) {
+        whyEl = document.createElement('div'); whyEl.className = 'fc-why';
+        card.querySelector('.fc-body').appendChild(whyEl);
+      }
+      whyEl.textContent = '⚡ ' + s.why_it_matters;
+    }
+  });
+}
+
+function observeFeedCards() {
+  if (!_synthObserver) {
+    _synthObserver = new IntersectionObserver((entries) => {
+      const ids = entries.filter(e => e.isIntersecting)
+        .map(e => e.target.getAttribute('data-id'))
+        .filter(id => id && !window._synthMap[id]);
+      if (ids.length) warmSynthesis(ids);
+    }, { rootMargin: '200px' });
+  }
+  document.querySelectorAll('.feed-card[data-id]').forEach(c => _synthObserver.observe(c));
+}
+
 async function fetchAndRenderFeed(append = false) {
   if (!BACKEND_ENABLED) { applyFeedFilters(); return; }
 
@@ -3860,30 +3940,130 @@ function _hl(text, q) {
   } catch(e) { return text; }
 }
 
+// AI synthesis cache: id -> { headline, why_it_matters, source, flags }
+window._synthMap = window._synthMap || {};
+
+// Client-side rule fallback — mirrors backend build_rule_based_card so cards are
+// never blank before /synthesis returns.
+function ruleCard(d) {
+  const verb = ({approval:'approved',rejection:'rejected',guidance:'issued guidance on',decision:'decided on'})[d.tag] || 'assessed';
+  const name = d.inn || (d.title ? d.title.split('(')[0].trim() : '') || d.title || 'a medicine';
+  const headline = `${d.body} ${verb} ${name}`.trim();
+  let why = null;
+  const irp = d.irp_score || 0;
+  if (irp >= 50) why = `High reference-pricing impact (IRP ${irp}).`;
+  else if (irp > 0) why = `Reference-pricing relevant (IRP ${irp}).`;
+  return { headline, why_it_matters: why, source: 'rule' };
+}
+
+function synthFor(d) {
+  return window._synthMap[d.id] || ruleCard(d);
+}
+
+function openDecisionPanel(id) {
+  const d = (window._allFeedItems || []).find(x => x.id === id);
+  if (!d) return;
+  renderDecisionPanel(d);
+  document.getElementById('decisionPanel').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeDecisionPanel() {
+  document.getElementById('decisionPanel').style.display = 'none';
+  document.body.style.overflow = '';
+}
+function closeDecisionOnBackdrop(e) { if (e.target.id === 'decisionPanel') closeDecisionPanel(); }
+
+function renderDecisionPanel(d) {
+  const s = synthFor(d);
+  document.getElementById('dpDrug').textContent = d.title || d.inn || 'Decision';
+  const wtp = d.wtp ? `<span class="fact">WTP: <b>${d.wtp.low ? (d.wtp.currency+' '+d.wtp.low.toLocaleString()+(d.wtp.high?'–'+d.wtp.high.toLocaleString():'')) : (d.wtp.note||'—')}</b></span>` : '';
+  const lot = d.line_of_therapy ? `<span class="fact">Line: <b>${d.line_of_therapy}</b></span>` : '';
+  document.getElementById('dpBody').innerHTML = `
+    <div class="dp-meta">${d.flag||''} ${d.body} · ${(d.region||'').toUpperCase()} · ${d.time||''}</div>
+    <div class="dp-sec"><span class="dp-lbl">What happened</span>
+      <div class="dp-what">${s.headline}</div></div>
+    <div class="dp-sec"><span class="dp-lbl dp-ok">✓ Verified facts — from HTA Intel data</span>
+      <div class="dp-facts">
+        <span class="fact">Outcome: <b>${d.outcome||d.tag}</b></span>
+        ${d.ta && d.ta!=='other' ? `<span class="fact">TA: <b>${d.ta.replace(/_/g,' ')}</b></span>`:''}
+        ${d.irp_score ? `<span class="fact irp">IRP: <b>${d.irp_score}</b></span>`:''}
+        ${d.inn ? `<span class="fact">INN: <b>${d.inn}</b></span>`:''}
+        ${lot}${wtp}
+      </div></div>
+    <div class="dp-sec"><span class="dp-lbl">Cross-market status — from your data</span>
+      <div id="dpXmkt"><div class="dp-muted">Loading…</div></div></div>
+    <div class="dp-sec"><span class="dp-lbl">AI analysis</span>
+      <div class="dp-ai"><span class="dp-ai-tag">⚡ AI-generated · verify against source</span>
+        <p id="dpAnalysis" class="dp-shimmer">Synthesizing…</p></div></div>
+    <div class="dp-sec"><span class="dp-lbl">Original source text</span>
+      <div class="dp-src">${(d.summary||'').slice(0,600)||'—'}</div></div>
+    <div class="dp-actions">
+      <button class="dp-btn primary" id="dpStar" onclick="panelToggleStar('${d.id}')">${starredIds.has(d.id)?'★ Saved':'★ Add to watchlist'}</button>
+      <a class="dp-btn ghost" href="${d.link||'#'}" target="_blank" rel="noopener noreferrer">Open source ↗</a>
+    </div>`;
+  loadPanelCrossMarket(d);
+  loadPanelAnalysis(d);
+}
+
+async function loadPanelCrossMarket(d) {
+  const el = document.getElementById('dpXmkt');
+  if (!d.inn) { el.innerHTML = '<div class="dp-muted">No INN — cross-market unavailable.</div>'; return; }
+  try {
+    const r = await fetch(BACKEND_URL + '/drug?inn=' + encodeURIComponent(d.inn) + '&limit=50');
+    const data = await r.json();
+    const byBody = {};
+    (data.items||[]).forEach(it => { if (!byBody[it.body]) byBody[it.body] = it; });
+    const rows = Object.values(byBody);
+    if (!rows.length) { el.innerHTML = '<div class="dp-muted">No other decisions found.</div>'; return; }
+    el.innerHTML = rows.map(it => `<div class="dp-xrow"><span>${it.flag||''} ${it.body}</span>
+      <span class="dp-out">${it.outcome||it.tag}</span></div>`).join('');
+  } catch(e) { el.innerHTML = '<div class="dp-muted">Cross-market unavailable.</div>'; }
+}
+
+async function loadPanelAnalysis(d) {
+  const el = document.getElementById('dpAnalysis');
+  try {
+    const r = await fetch(BACKEND_URL + '/synthesis/' + encodeURIComponent(d.id) + '/panel');
+    const data = await r.json();
+    el.classList.remove('dp-shimmer');
+    el.textContent = data.analysis || 'No AI analysis available for this item.';
+  } catch(e) { el.classList.remove('dp-shimmer'); el.textContent = 'AI analysis unavailable.'; }
+}
+
+function panelToggleStar(id) {
+  const el = document.querySelector(`.feed-card[data-id="${id}"] .fc-star`);
+  const fake = { preventDefault(){}, stopPropagation(){} };
+  toggleItemStar(fake, id, el || document.createElement('span'));
+  const btn = document.getElementById('dpStar');
+  if (btn) btn.textContent = starredIds.has(id) ? '★ Saved' : '★ Add to watchlist';
+}
+
 function renderFeed(data, highlightQ) {
-  document.getElementById('feedList').innerHTML = data.map((d, i) => `
-    <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title + ' ' + d.body + ' ' + d.body_name).toLowerCase()}" style="animation-delay:${i * 0.03}s">
+  document.getElementById('feedList').innerHTML = data.map((d, i) => {
+    const s = synthFor(d);
+    return `
+    <div class="feed-card" role="button" tabindex="0" data-id="${d.id}" data-tag="${d.tag}" data-text="${(d.title + ' ' + d.body).toLowerCase()}" style="animation-delay:${i * 0.03}s" onclick="openDecisionPanel('${d.id}')" onkeydown="if(event.key==='Enter')openDecisionPanel('${d.id}')">
       <span class="fc-star ${starredIds.has(d.id) ? 'starred' : ''}" onclick="toggleItemStar(event,'${d.id}',this)" title="Add to watchlist">★</span>
       <div class="fc-top">
         <div class="fc-flag">${d.flag}</div>
         <div class="fc-body">
-          <div style="display:flex;align-items:flex-start;gap:6px">
-              <div class="fc-title" style="flex:1">${_hl(d.title, highlightQ)}</div>
-              ${currentSort==='irp' && d.irp_score ? `<span title="IRP sensitivity score" style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;background:${d.irp_score>=70?'var(--red-lt)':d.irp_score>=50?'var(--amber-lt)':'var(--accent-lt)'};color:${d.irp_score>=70?'var(--red)':d.irp_score>=50?'var(--amber)':'var(--accent)'}">IRP ${d.irp_score}</span>` : ''}
-            </div>
-          <div class="fc-summary">${_hl(d.summary, highlightQ)}</div>
+          <div class="fc-title">${_hl(s.headline, highlightQ)}</div>
+          ${s.why_it_matters ? `<div class="fc-why">⚡ ${s.why_it_matters}</div>` : ''}
         </div>
       </div>
       <div class="fc-footer">
         <span class="tag tag-${d.tag}">${d.tag.toUpperCase()}</span>
         ${d.irp ? '<span class="tag tag-irp">IRP-LINKED</span>' : ''}
-        ${d.outcome && !['positive','guidance','negative'].includes(d.outcome) ? `<span class="tag tag-out-${d.outcome.replace(/_/g,'-')}">${{'positive_major':'★★★ Major','positive_considerable':'★★ Considerable','positive_minor':'★ Minor','positive_nonquantifiable':'★ Non-quant.','restricted':'◑ Restricted','consultation':'◎ Consult.'}[d.outcome]||d.outcome}</span>` : ''}
+        ${d.outcome && !['positive','guidance','negative'].includes(d.outcome) ? `<span class="tag tag-out-${d.outcome.replace(/_/g,'-')}">${({'positive_major':'★★★ Major','positive_considerable':'★★ Considerable','positive_minor':'★ Minor','positive_nonquantifiable':'★ Non-quant.','restricted':'◑ Restricted','consultation':'◎ Consult.'})[d.outcome]||d.outcome}</span>` : ''}
         ${d.ta && d.ta !== 'other' ? `<span class="tag tag-ta">${d.ta.replace(/_/g,' ')}</span>` : ''}
+        ${s.flags && s.flags.biosimilar ? '<span class="tag tag-ta">Biosimilar</span>' : ''}
         <span class="fc-source">${d.body}</span>
         <span class="fc-time">${d.time}</span>
       </div>
-    </a>
-  `).join('');
+    </div>`;
+  }).join('');
+  warmSynthesis(data.slice(0, 10).map(d => d.id));
+  observeFeedCards();
 }
 
 
@@ -3891,28 +4071,31 @@ function renderFeedAppend(data, highlightQ) {
   const feedList = document.getElementById('feedList');
   if (!feedList || !data.length) return;
   const frag = document.createRange().createContextualFragment(
-    data.map((d, i) => `
-      <a href="${d.link||'#'}" target="_blank" rel="noopener noreferrer" class="feed-card" data-tag="${d.tag}" data-text="${(d.title+' '+d.body).toLowerCase()}" style="animation-delay:${i*0.03}s">
+    data.map((d, i) => {
+      const s = synthFor(d);
+      return `
+      <div class="feed-card" role="button" tabindex="0" data-id="${d.id}" data-tag="${d.tag}" data-text="${(d.title+' '+d.body).toLowerCase()}" style="animation-delay:${i*0.03}s" onclick="openDecisionPanel('${d.id}')" onkeydown="if(event.key==='Enter')openDecisionPanel('${d.id}')">
         <span class="fc-star ${starredIds.has(d.id) ? 'starred' : ''}" onclick="toggleItemStar(event,'${d.id}',this)" title="Add to watchlist">★</span>
         <div class="fc-top">
           <div class="fc-flag">${d.flag}</div>
           <div class="fc-body">
-            <div style="display:flex;align-items:flex-start;gap:6px">
-              <div class="fc-title" style="flex:1">${_hl(d.title, highlightQ)}</div>
-            </div>
-            <div class="fc-summary">${_hl(d.summary, highlightQ)}</div>
+            <div class="fc-title">${_hl(s.headline, highlightQ)}</div>
+            ${s.why_it_matters ? `<div class="fc-why">⚡ ${s.why_it_matters}</div>` : ''}
           </div>
         </div>
         <div class="fc-footer">
           <span class="tag tag-${d.tag}">${d.tag.toUpperCase()}</span>
           ${d.irp ? '<span class="tag tag-irp">IRP-LINKED</span>' : ''}
+          ${d.ta && d.ta !== 'other' ? `<span class="tag tag-ta">${d.ta.replace(/_/g,' ')}</span>` : ''}
           <span class="fc-source">${d.body}</span>
           <span class="fc-time">${d.time}</span>
         </div>
-      </a>
-    `).join('')
+      </div>`;
+    }).join('')
   );
   feedList.appendChild(frag);
+  warmSynthesis(data.map(d => d.id));
+  observeFeedCards();
 }
 
 function updateLoadMoreButton() {
