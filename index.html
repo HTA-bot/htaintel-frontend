@@ -1107,6 +1107,19 @@ body {
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* Decision panel = right-side full-height drawer (overrides centered modal) */
+#decisionPanel { align-items: stretch; justify-content: flex-end; }
+#decisionPanel .modal {
+  width: 560px; max-width: 92vw;
+  height: 100vh; max-height: 100vh;
+  border-radius: 0; border-top: none; border-right: none; border-bottom: none;
+  display: flex; flex-direction: column;
+  box-shadow: -20px 0 60px rgba(0,0,0,0.18);
+  animation: dpSlideIn 0.22s ease both;
+}
+#decisionPanel .modal-body { flex: 1; overflow-y: auto; }
+@keyframes dpSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -2292,7 +2305,7 @@ body {
   </div>
 
   <div class="modal-backdrop" id="decisionPanel" onclick="closeDecisionOnBackdrop(event)" style="display:none">
-    <div class="modal" style="max-width:560px;max-height:88vh;overflow-y:auto">
+    <div class="modal">
       <div class="modal-header">
         <span class="modal-title" id="dpDrug">—</span>
         <button class="modal-close" onclick="closeDecisionPanel()">✕</button>
