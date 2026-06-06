@@ -3772,7 +3772,7 @@ async function fetchAndRenderFeed(append = false) {
       const grid = document.getElementById('feedGrid');
       if (grid) grid.innerHTML = `<div style="padding:40px;text-align:center;opacity:.5;grid-column:1/-1">
         <div style="font-size:32px;margin-bottom:8px">🔍</div>
-        <div style="font-weight:600">No results for "${q}"</div>
+        <div style="font-weight:600">No results for "${esc(q)}"</div>
         <div style="font-size:13px;margin-top:4px">Try the INN, brand name, or therapeutic area</div>
       </div>`;
       const countEl = document.getElementById('searchCount');
@@ -3955,13 +3955,19 @@ updateWatchlistCount();
 // FEED
 // ══════════════════════════════════════════
 
+// HTML-escape untrusted text before it goes into innerHTML.
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
 function _hl(text, q) {
-  if (!q || !text) return text || '';
+  const safe = esc(text);
+  if (!q || !text) return safe;
   const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   try {
-    return text.replace(new RegExp('(' + escaped + ')', 'gi'),
+    return safe.replace(new RegExp('(' + escaped + ')', 'gi'),
       '<mark style="background:rgba(79,70,229,.2);color:inherit;border-radius:2px;padding:0 1px">$1</mark>');
-  } catch(e) { return text; }
+  } catch(e) { return safe; }
 }
 
 // AI synthesis cache: id -> { headline, why_it_matters, source, flags }
@@ -4005,13 +4011,13 @@ function renderDecisionPanel(d) {
   document.getElementById('dpBody').innerHTML = `
     <div class="dp-meta">${d.flag||''} ${d.body} · ${(d.region||'').toUpperCase()} · ${d.time||''}</div>
     <div class="dp-sec"><span class="dp-lbl">What happened</span>
-      <div class="dp-what">${s.headline}</div></div>
+      <div class="dp-what">${esc(s.headline)}</div></div>
     <div class="dp-sec"><span class="dp-lbl dp-ok">✓ Verified facts — from HTA Intel data</span>
       <div class="dp-facts">
         <span class="fact">Outcome: <b>${d.outcome||d.tag}</b></span>
         ${d.ta && d.ta!=='other' ? `<span class="fact">TA: <b>${d.ta.replace(/_/g,' ')}</b></span>`:''}
         ${d.irp_score ? `<span class="fact irp">IRP: <b>${d.irp_score}</b></span>`:''}
-        ${d.inn ? `<span class="fact">INN: <b>${d.inn}</b></span>`:''}
+        ${d.inn ? `<span class="fact">INN: <b>${esc(d.inn)}</b></span>`:''}
         ${lot}${wtp}
       </div></div>
     <div class="dp-sec"><span class="dp-lbl">Cross-market status — from your data</span>
@@ -4020,7 +4026,7 @@ function renderDecisionPanel(d) {
       <div class="dp-ai"><span class="dp-ai-tag">⚡ AI-generated · verify against source</span>
         <p id="dpAnalysis" class="dp-shimmer">Synthesizing…</p></div></div>
     <div class="dp-sec"><span class="dp-lbl">Original source text</span>
-      <div class="dp-src">${(d.summary||'').slice(0,600)||'—'}</div></div>
+      <div class="dp-src">${esc((d.summary||'').slice(0,600))||'—'}</div></div>
     <div class="dp-actions">
       <button class="dp-btn primary" id="dpStar" onclick="panelToggleStar('${d.id}')">${starredIds.has(d.id)?'★ Saved':'★ Add to watchlist'}</button>
       <a class="dp-btn ghost" href="${d.link||'#'}" target="_blank" rel="noopener noreferrer">Open source ↗</a>
@@ -4039,8 +4045,8 @@ async function loadPanelCrossMarket(d) {
     (data.items||[]).forEach(it => { if (!byBody[it.body]) byBody[it.body] = it; });
     const rows = Object.values(byBody);
     if (!rows.length) { el.innerHTML = '<div class="dp-muted">No other decisions found.</div>'; return; }
-    el.innerHTML = rows.map(it => `<div class="dp-xrow"><span>${it.flag||''} ${it.body}</span>
-      <span class="dp-out">${it.outcome||it.tag}</span></div>`).join('');
+    el.innerHTML = rows.map(it => `<div class="dp-xrow"><span>${it.flag||''} ${esc(it.body)}</span>
+      <span class="dp-out">${esc(it.outcome||it.tag)}</span></div>`).join('');
   } catch(e) { el.innerHTML = '<div class="dp-muted">Cross-market unavailable.</div>'; }
 }
 
@@ -4072,7 +4078,7 @@ function renderFeed(data, highlightQ) {
         <div class="fc-flag">${d.flag}</div>
         <div class="fc-body">
           <div class="fc-title">${_hl(s.headline, highlightQ)}</div>
-          ${s.why_it_matters ? `<div class="fc-why">⚡ ${s.why_it_matters}</div>` : ''}
+          ${s.why_it_matters ? `<div class="fc-why">⚡ ${esc(s.why_it_matters)}</div>` : ''}
         </div>
       </div>
       <div class="fc-footer">
@@ -4104,7 +4110,7 @@ function renderFeedAppend(data, highlightQ) {
           <div class="fc-flag">${d.flag}</div>
           <div class="fc-body">
             <div class="fc-title">${_hl(s.headline, highlightQ)}</div>
-            ${s.why_it_matters ? `<div class="fc-why">⚡ ${s.why_it_matters}</div>` : ''}
+            ${s.why_it_matters ? `<div class="fc-why">⚡ ${esc(s.why_it_matters)}</div>` : ''}
           </div>
         </div>
         <div class="fc-footer">
