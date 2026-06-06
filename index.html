@@ -3904,14 +3904,25 @@ function saveStarred() {
 function toggleItemStar(e, itemId, el) {
   e.preventDefault();
   e.stopPropagation();
-  if (starredIds.has(itemId)) {
-    starredIds.delete(itemId);
-    el.classList.remove('starred');
-  } else {
+  const willStar = !starredIds.has(itemId);
+  if (willStar) {
     starredIds.add(itemId);
     el.classList.add('starred');
+  } else {
+    starredIds.delete(itemId);
+    el.classList.remove('starred');
   }
   saveStarred();
+  // Persist to the signed-in user's account (no-op for demo/guests)
+  const u = (typeof activeUser === 'function') ? activeUser() : null;
+  if (u && u.id !== 'demo') {
+    if (willStar) {
+      const item = (window._allFeedItems || []).find(x => x.id === itemId);
+      if (item) addToWatchlist(item);
+    } else {
+      removeFromWatchlist(itemId);
+    }
+  }
   // If currently viewing watchlist, refresh to remove/add item
   if (currentGroupFilter === 'watchlist') {
     applyWatchlistFilter();
@@ -6679,6 +6690,7 @@ async function loadUserFromSupabase(sbUser) {
     appState.activeUserId = user.id;
     appState.currentProfile = 0;
     saveState();
+    hydrateStarredFromSupabase();
   } catch(e) {
     console.warn('loadUserFromSupabase failed:', e);
   }
@@ -6753,6 +6765,22 @@ async function loadWatchlistFromSupabase() {
     console.warn('loadWatchlistFromSupabase failed:', e);
     return [];
   }
+}
+
+// Merge the signed-in user's saved watchlist into local starred state on load.
+async function hydrateStarredFromSupabase() {
+  const rows = await loadWatchlistFromSupabase();
+  if (!rows || !rows.length) return;
+  rows.forEach(r => { if (r.item_id) starredIds.add(r.item_id); });
+  saveStarred();
+  // Reflect on any cards already rendered
+  document.querySelectorAll('.feed-card[data-id]').forEach(card => {
+    if (starredIds.has(card.getAttribute('data-id'))) {
+      const star = card.querySelector('.fc-star');
+      if (star) star.classList.add('starred');
+    }
+  });
+  if (currentGroupFilter === 'watchlist') applyWatchlistFilter();
 }
 
 async function addToWatchlist(item) {
