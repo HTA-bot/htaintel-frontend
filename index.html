@@ -5162,12 +5162,28 @@ async function doSignUp() {
       profiles:  [],
       createdAt: Date.now(),
     };
+    // Skip onboarding: give the account a sensible default profile and go
+    // straight to the home feed. Setup stays available later via the account
+    // menu → "Edit setup & preferences".
+    user.profiles = [{
+      id: 'p_' + data.user.id.slice(0, 8),
+      name: 'My Setup', role: null, roleLabel: '',
+      color: user.color,
+      regions: ['eu', 'uk', 'au', 'ca'],
+      keywords: [],
+      alertTypes: ['approval', 'rejection', 'irp', 'guidance'],
+      feedPrefs: { irpOnly: false, starredFirst: true },
+      digest: { daily: true, weekly: true, instant: false, browser: false },
+      activeTab: 'feed', activePill: 'all',
+    }];
     appState.users = appState.users.filter(u => u.id !== user.id);
     appState.users.push(user);
     appState.activeUserId = user.id;
+    appState.currentProfile = 0;
     saveState();
+    saveProfileToSupabase(user.profiles[0]);
     document.getElementById('authScreen').classList.add('hidden');
-    openWizard(true);
+    enterApp();
   } catch(e) {
     showAuthError('Sign up failed. Please try again.');
   }
