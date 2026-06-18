@@ -1791,6 +1791,28 @@ body {
   .mob-nav-item .mn-icon { font-size: 18px; line-height: 1; }
   .mob-nav-item.active { color: var(--accent); }
   .mob-nav-item:active { background: var(--surface2); }
+
+  /* ── Precedents + Drug Profile: stop nowrap result text from forcing the
+        panel wrapper wider than the screen (which clipped filters, the search
+        box, and most of every result off-screen). Let text wrap on mobile and
+        give the flex chain min-width:0 so it can shrink to the viewport. ── */
+  #panel-precedents > div, #panel-drug > div { max-width: 100% !important; padding: 16px 12px !important; }
+  #panel-precedents, #panel-drug,
+  #prec-results, #drugProfileResults,
+  #prec-results > a, #drugProfileResults .dp-item,
+  .dp-body-group, .dp-body-header, .dp-body-items, .dp-item-top { min-width: 0 !important; }
+  #prec-results [style*="nowrap"],
+  .dp-item-title, .dp-item-summary { white-space: normal !important; overflow: visible !important; }
+  #panel-drug #drugProfileSearch,
+  #panel-drug input[type="text"] { max-width: 100% !important; }
+
+  /* IRP: the floating "How IRP works" explainer and legend are absolutely
+     positioned for the network canvas, but on phones they cover the country
+     chips / Compare + Matrix content. Hide them on mobile. */
+  .irp-info, .irp-legend { display: none !important; }
+
+  /* Announcements: single column — 2-col cards are too cramped at phone width */
+  .ann-grid { grid-template-columns: 1fr !important; }
 }
 
 /* Desktop: hide mobile-only elements */
