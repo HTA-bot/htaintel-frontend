@@ -1680,6 +1680,25 @@ body {
   .feed-item, .usa-item { padding: 12px 12px !important; }
   .fpill { padding: 7px 14px !important; font-size: 12px !important; }
 
+  /* Feed card density — clamp tall synthesis cards so several fit per screen.
+     Full text is still available by tapping into the decision panel. */
+  .feed-card { padding: 11px 12px; }
+  .feed-card .fc-title {
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .feed-card .fc-why {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; font-size: 11px; padding: 5px 8px; margin-top: 5px;
+  }
+
+  /* Alert panel (bell) — was a fixed 380px desktop popup that clipped off the
+     left edge and covered the bottom nav. Make it a proper sheet above the nav. */
+  #alertPanel {
+    left: 8px !important; right: 8px !important; width: auto !important;
+    bottom: 70px !important; max-height: 60vh !important;
+  }
+
   /* USA hub — single column */
   .usa-body {
     display: flex !important;
@@ -5711,6 +5730,11 @@ function runAlertEngine(items) {
 }
 
 function showAlertPanel(items, profile) {
+  // On phones, don't auto-pop the alert panel — it covered the bottom nav and
+  // felt "stuck". The badge/history are already updated by runAlertEngine, so
+  // alerts stay reachable by tapping the bell.
+  if (window.innerWidth <= 768) return;
+
   // Remove existing alert panel
   document.getElementById('alertPanel')?.remove();
 
