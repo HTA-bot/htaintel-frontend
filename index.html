@@ -1716,7 +1716,7 @@ body {
 
   /* IRP canvas — scrollable container */
   .irp-body { overflow: auto !important; -webkit-overflow-scrolling: touch; }
-  #irpCanvas { touch-action: pan-x pan-y; }
+  #irpCanvas { touch-action: none; }  /* drags pan the network, not the page */
 
   /* Panels */
   .panel { overflow-y: auto !important; }
@@ -3188,7 +3188,7 @@ function setIrpView(view, el) {
   matrix.style.display   = view === 'matrix'  ? 'block' : 'none';
   compare.style.display  = view === 'compare' ? 'flex'  : 'none';
   if (matrixBd) matrixBd.style.display = view === 'matrix' ? 'block' : 'none';
-  if (view === 'network') drawIRP();
+  if (view === 'network') { irpFitView(); drawIRP(); }
   if (view === 'matrix')  renderMatrix();
   if (view === 'compare') renderCompare();
 }
@@ -3340,6 +3340,104 @@ function closeIrpCard() {
   irpCardNode = null;
 }
 
+// ── Network pan / zoom camera ───────────────────────────────────────────────
+// The network canvas was never draggable (cursor:grab was cosmetic) so on small
+// screens the outer nodes were clipped with no way to reach them. irpCam applies
+// a pan (tx,ty) + zoom (scale) transform; pointer + wheel handlers drive it.
+let irpCam   = { tx: 0, ty: 0, scale: 1 };
+let _irpDims = { W: 800, H: 500 };
+const _irpPtrs = new Map();
+let _irpDownXY = null, _irpMoved = 0, _irpPinch = null;
+
+// Fit all selected nodes inside the canvas with padding for radius + labels.
+function irpFitView() {
+  const canvas = document.getElementById('irpCanvas');
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  const W = wrap.clientWidth || 800, H = wrap.clientHeight || 500;
+  _irpDims = { W, H };
+  const live = irpNodes.filter(n => irpSelectedCountries.has(n.id));
+  if (!live.length) { irpCam = { tx: 0, ty: 0, scale: 1 }; return; }
+  let minx = 1, miny = 1, maxx = 0, maxy = 0;
+  live.forEach(n => { minx = Math.min(minx, n.x); maxx = Math.max(maxx, n.x); miny = Math.min(miny, n.y); maxy = Math.max(maxy, n.y); });
+  const pad = 52;
+  const bx = minx * W - pad, by = miny * H - pad;
+  const bw = Math.max(1, (maxx - minx) * W + 2 * pad), bh = Math.max(1, (maxy - miny) * H + 2 * pad);
+  const s = Math.min(W / bw, H / bh, 1.8);
+  irpCam.scale = s;
+  irpCam.tx = (W - bw * s) / 2 - bx * s;
+  irpCam.ty = (H - bh * s) / 2 - by * s;
+}
+
+function irpZoomAt(canvas, clientX, clientY, factor) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = clientX - rect.left, sy = clientY - rect.top;
+  const ns = Math.max(0.4, Math.min(5, irpCam.scale * factor));
+  const k = ns / irpCam.scale;
+  irpCam.tx = sx - (sx - irpCam.tx) * k;
+  irpCam.ty = sy - (sy - irpCam.ty) * k;
+  irpCam.scale = ns;
+}
+
+function _irpPinchInfo() {
+  const pts = [..._irpPtrs.values()];
+  if (pts.length < 2) return { dist: 1, mx: 0, my: 0 };
+  const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
+  return { dist: Math.hypot(dx, dy) || 1, mx: (pts[0].x + pts[1].x) / 2, my: (pts[0].y + pts[1].y) / 2 };
+}
+
+// Pointer-based pan + pinch-zoom + tap-to-open. Attached once per canvas.
+function attachIrpHandlers(canvas) {
+  if (canvas._irpReady) return;
+  canvas._irpReady = true;
+  canvas.style.touchAction = 'none';
+  const pick = (cx, cy) => {
+    const rect = canvas.getBoundingClientRect();
+    const wx = (cx - rect.left - irpCam.tx) / irpCam.scale;
+    const wy = (cy - rect.top  - irpCam.ty) / irpCam.scale;
+    const live = irpNodes.filter(n => irpSelectedCountries.has(n.id));
+    return live.find(n => { const dx = n.x * _irpDims.W - wx, dy = n.y * _irpDims.H - wy; const r = 10 + (n.score || 0) * 1.5 + 8; return dx*dx + dy*dy < r*r; }) || null;
+  };
+  canvas.onpointerdown = (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    _irpPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (_irpPtrs.size === 1) { _irpDownXY = { x: e.clientX, y: e.clientY }; _irpMoved = 0; }
+    else if (_irpPtrs.size === 2) { _irpPinch = _irpPinchInfo(); }
+  };
+  canvas.onpointermove = (e) => {
+    if (_irpPtrs.has(e.pointerId)) {
+      const prev = _irpPtrs.get(e.pointerId), cur = { x: e.clientX, y: e.clientY };
+      _irpPtrs.set(e.pointerId, cur);
+      if (_irpPtrs.size === 1) {
+        const dx = cur.x - prev.x, dy = cur.y - prev.y;
+        irpCam.tx += dx; irpCam.ty += dy; _irpMoved += Math.abs(dx) + Math.abs(dy);
+        drawIRP();
+      } else if (_irpPtrs.size >= 2 && _irpPinch) {
+        const now = _irpPinchInfo();
+        irpZoomAt(canvas, now.mx, now.my, now.dist / (_irpPinch.dist || now.dist));
+        irpCam.tx += now.mx - _irpPinch.mx; irpCam.ty += now.my - _irpPinch.my;
+        _irpPinch = now; drawIRP();
+      }
+    } else if (_irpPtrs.size === 0) {
+      const n = pick(e.clientX, e.clientY);
+      const id = n ? n.id : null;
+      if (id !== irpHoverNode) { irpHoverNode = id; canvas.style.cursor = id ? 'pointer' : 'grab'; drawIRP(); }
+    }
+  };
+  const end = (e) => {
+    _irpPtrs.delete(e.pointerId);
+    if (_irpPtrs.size < 2) _irpPinch = null;
+    if (_irpPtrs.size === 0) {
+      if (_irpMoved < 8 && _irpDownXY) { const n = pick(e.clientX, e.clientY); if (n) openIrpCard(n.id); }
+      _irpDownXY = null;
+    } else { _irpMoved = 99; } // had multiple fingers — never treat as a tap
+  };
+  canvas.onpointerup = end;
+  canvas.onpointercancel = end;
+  canvas.onmouseleave = () => { if (irpHoverNode) { irpHoverNode = null; drawIRP(); } };
+  canvas.onwheel = (e) => { e.preventDefault(); irpZoomAt(canvas, e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 1/1.12); drawIRP(); };
+}
+
 // ── Network view ───────────────────────────────────────────────────────────
 function drawIRP() {
   const canvas = document.getElementById('irpCanvas');
@@ -3355,6 +3453,7 @@ function drawIRP() {
   canvas.style.width  = cssW + 'px';
   canvas.style.height = cssH + 'px';
   const W = cssW, H = cssH;
+  _irpDims = { W, H };
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);   // scale all drawing to physical pixels
   ctx.clearRect(0, 0, W, H);
@@ -3363,11 +3462,16 @@ function drawIRP() {
   const visibleIds   = new Set(visibleNodes.map(n => n.id));
   const visibleEdges = irpEdges.filter(([f,t]) => visibleIds.has(f) && visibleIds.has(t));
 
-  // Subtle grid
+  // Subtle grid (screen space — stays fixed behind the pannable network)
   ctx.strokeStyle = 'rgba(0,0,0,0.025)';
   ctx.lineWidth = 1;
   for (let x = 0; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
   for (let y = 0; y < H; y += 50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Apply pan/zoom camera for the network itself
+  ctx.save();
+  ctx.translate(irpCam.tx, irpCam.ty);
+  ctx.scale(irpCam.scale, irpCam.scale);
 
   // Draw edges — highlight those connected to hovered node
   visibleEdges.forEach(([from, to]) => {
@@ -3428,33 +3532,10 @@ function drawIRP() {
     ctx.fillText(n.label, cx, cy + r + 10);
   });
 
-  // Hover & click handlers — reattach every draw so getNode always uses
-  // the current visibleNodes (stale closure bug if attached only once)
-  const getNode = (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
-    const liveNodes = irpNodes.filter(n => irpSelectedCountries.has(n.id));
-    return liveNodes.find(n => {
-      const dx = n.x*canvas.width - mx, dy = n.y*canvas.height - my;
-      const r = 10 + (n.score||0)*1.5 + 6;
-      return dx*dx + dy*dy < r*r;
-    }) || null;
-  };
-  canvas.onmousemove = (e) => {
-    const n = getNode(e);
-    const newHover = n ? n.id : null;
-    if (newHover !== irpHoverNode) {
-      irpHoverNode = newHover;
-      canvas.style.cursor = newHover ? 'pointer' : 'default';
-      drawIRP();
-    }
-  };
-  canvas.onclick = (e) => {
-    const n = getNode(e);
-    if (n) openIrpCard(n.id);
-  };
-  canvas.onmouseleave = () => { irpHoverNode = null; drawIRP(); };
+  ctx.restore(); // end pan/zoom camera
+
+  // Pan / pinch-zoom / tap handlers (attached once; they read irpCam + _irpDims)
+  attachIrpHandlers(canvas);
 }
 
 // ── Matrix view ────────────────────────────────────────────────────────────
@@ -3596,10 +3677,11 @@ function removeIrpCompare(id) {
 // ── Init ───────────────────────────────────────────────────────────────────
 function initIRP() {
   buildIrpSelector();
+  irpFitView();
   drawIRP();
 }
 
-window.addEventListener('resize', () => { if (irpView === 'network') drawIRP(); });
+window.addEventListener('resize', () => { if (irpView === 'network') { irpFitView(); drawIRP(); } });
 
 
 function setGroup(g, el) {
