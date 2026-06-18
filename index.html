@@ -5730,10 +5730,10 @@ function runAlertEngine(items) {
 }
 
 function showAlertPanel(items, profile) {
-  // On phones, don't auto-pop the alert panel — it covered the bottom nav and
-  // felt "stuck". The badge/history are already updated by runAlertEngine, so
-  // alerts stay reachable by tapping the bell.
-  if (window.innerWidth <= 768) return;
+  // Never auto-pop the alert panel (desktop or mobile). runAlertEngine has
+  // already updated the bell badge and history, so alerts stay reachable by
+  // tapping the bell — without an unsolicited popup.
+  return;
 
   // Remove existing alert panel
   document.getElementById('alertPanel')?.remove();
