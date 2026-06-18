@@ -855,24 +855,6 @@ body {
   flex-shrink: 0;
 }
 
-.irp-tooltip {
-  position: absolute;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  box-shadow: var(--shadow-md);
-  font-size: 12px;
-  pointer-events: none;
-  display: none;
-  max-width: 220px;
-  z-index: 20;
-}
-
-.irp-tt-name { font-weight: 600; font-size: 13px; color: var(--text); margin-bottom: 4px; }
-.irp-tt-row  { color: var(--text2); margin-top: 2px; }
-.irp-tt-row span { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
-
 .irp-info {
   position: absolute;
   top: 16px; right: 16px;
@@ -1297,7 +1279,7 @@ body {
   .print-header-meta { font-size: 11px; color: #a8a29e; text-align: right; }
 
   canvas { display: none !important; }
-  .irp-legend, .irp-info, .irp-tooltip, .irp-toolbar { display: none !important; }
+  .irp-legend, .irp-info, .irp-toolbar { display: none !important; }
   .irp-matrix-wrap { display: block !important; overflow: visible !important; }
 
   .feed-toolbar { display: none !important; }
@@ -2652,7 +2634,6 @@ body {
             <p>Germany, UK, and France are the most-referenced anchors — if their price drops, it ripples through 10+ other markets.</p>
           </div>
 
-          <div class="irp-tooltip" id="irpTooltip"></div>
         </div>
       </section>
 
@@ -4643,58 +4624,7 @@ function renderAnnItems(items) {
 // ══════════════════════════════════════════
 // IRP NETWORK
 // ══════════════════════════════════════════
-let animFrame;
-let hoveredNode = null;
-
 irpNodes.forEach(n => nodeMap[n.id] = n);
-
-function getNodePx(n, W, H) {
-  return { x: n.x * W, y: n.y * H };
-}
-
-function getNodeRadius(n) {
-  return 10 + n.score * 1.8;
-}
-
-function onIRPHover(e) {
-  const canvas = document.getElementById('irpCanvas');
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const W = canvas.width, H = canvas.height;
-  const tt = document.getElementById('irpTooltip');
-
-  let found = null;
-  irpNodes.forEach(n => {
-    const p = getNodePx(n, W, H);
-    const r = getNodeRadius(n);
-    const dist = Math.sqrt((mx-p.x)**2 + (my-p.y)**2);
-    if (dist <= r + 4) found = n;
-  });
-
-  if (found !== hoveredNode) {
-    hoveredNode = found;
-    drawIRP();
-  }
-
-  if (found) {
-    const referencedBy = irpEdges.filter(([f]) => f === found.id).map(([,t]) => t);
-    const references   = irpEdges.filter(([,t]) => t === found.id).map(([f]) => f);
-    tt.innerHTML = `
-      <div class="irp-tt-name">${found.label} (${found.id})</div>
-      <div class="irp-tt-row">Referenced by: <span>${references.length} nations</span></div>
-      <div class="irp-tt-row">References: <span>${referencedBy.join(', ') || 'none'}</span></div>
-      <div class="irp-tt-row">Influence score: <span>${found.score}/11</span></div>
-    `;
-    const ttX = Math.min(e.clientX - rect.left + 12, W - 230);
-    const ttY = Math.min(e.clientY - rect.top + 12, H - 120);
-    tt.style.left = ttX + 'px';
-    tt.style.top  = ttY + 'px';
-    tt.style.display = 'block';
-  } else {
-    tt.style.display = 'none';
-  }
-}
 
 // ══════════════════════════════════════════
 // USA HUB — LIVE DATA (openFDA API + RSS)
