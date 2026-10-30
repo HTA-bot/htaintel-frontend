@@ -5688,8 +5688,24 @@ function enterApp() {
   const u = activeUser();
   if (!u) return;
 
-  // If new user with no profiles, launch wizard
-  if (!u.profiles || u.profiles.length === 0) { openWizard(true); return; }
+  // No opening questionnaire: if the user has no profile yet, give them a
+  // sensible default so the feed loads straight away. Setup stays available
+  // later via the account menu → "Edit setup & preferences".
+  if (!u.profiles || u.profiles.length === 0) {
+    u.profiles = [{
+      id: 'p_' + (u.id || 'default').slice(0, 8),
+      name: 'My Setup', role: null, roleLabel: '',
+      color: u.color || '#4f46e5',
+      regions: ['eu', 'uk', 'au', 'ca'],
+      keywords: [],
+      alertTypes: ['approval', 'rejection', 'irp', 'guidance'],
+      feedPrefs: { irpOnly: false, starredFirst: true },
+      digest: { daily: true, weekly: true, instant: false, browser: false },
+      activeTab: 'feed', activePill: 'all',
+    }];
+    appState.currentProfile = 0;
+    saveState();
+  }
 
   applyProfile();
   renderProfileList();
@@ -6390,9 +6406,10 @@ window.addEventListener('resize', () => {
   }
 });
 
-// ── Boot auth system ──
-// If a user is already saved and active, go straight into the app
-// Try restoring Supabase session first, fall back to local state
+// ── Boot ──
+// Go straight into the app — no login gate, no opening questionnaire.
+// A signed-in Supabase session is still restored if one exists; otherwise
+// we load the default profile so the site opens directly.
 (async () => {
   let restored = false;
   if (window.supabase) {
@@ -6400,11 +6417,9 @@ window.addEventListener('resize', () => {
   }
   if (restored && activeUser()) {
     enterApp();
-  } else if (appState.activeUserId && activeUser() && activeUser().id === 'demo') {
-    // Demo user — local only
-    enterApp();
   } else {
-    document.getElementById('authScreen').classList.remove('hidden');
+    // No account / session — load the default profile and open the site.
+    doDemo();
   }
 })();
 
